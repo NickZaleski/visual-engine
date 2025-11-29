@@ -62,7 +62,7 @@ function App() {
       {/* Subtle branding */}
       <div className="fixed bottom-4 left-4 z-40 opacity-30 hover:opacity-60 transition-opacity duration-500">
         <p className="text-[10px] text-cosmic-400 font-display tracking-widest">
-          VISUAL ENGINE v1.0
+          VISUAL ENGINE FOR FOCUS TIMER by Nick Zaleski
         </p>
       </div>
     </div>
