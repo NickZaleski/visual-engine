@@ -97,10 +97,11 @@ export const GradientFlow: VisualModeFunction = (ctx, t, w, h, loopDuration) => 
 
 /**
  * Draw subtle floating particles
+ * Uses normalized time for seamless looping
  */
 function drawParticles(
   ctx: CanvasRenderingContext2D,
-  t: number,
+  normalizedTime: number,
   w: number,
   h: number
 ): void {
@@ -108,18 +109,27 @@ function drawParticles(
   
   for (let i = 0; i < particleCount; i++) {
     const seed = i * 137.508; // Golden angle for distribution
-    const speed = 0.05 + (i % 5) * 0.02;
+    const seedNorm = (seed % 1); // Normalized seed for phase
     
-    // Calculate position with smooth movement
-    const x = (Math.sin(seed + t * speed) * 0.5 + 0.5) * w;
-    const y = (Math.cos(seed * 0.7 + t * speed * 0.8) * 0.5 + 0.5) * h;
+    // Different particles move at different cycle counts (1-3 cycles per loop)
+    const moveCycles = 1 + (i % 5) * 0.4;
     
-    // Pulsing size
+    // Calculate position with smooth movement - complete cycles for seamless loop
+    const xPhase = loopSin(normalizedTime, moveCycles, seedNorm);
+    const yPhase = loopSin(normalizedTime, moveCycles * 0.8, seedNorm * 0.7);
+    
+    // Use seed for base position, animation for movement
+    const baseX = (Math.sin(seed) * 0.5 + 0.5);
+    const baseY = (Math.cos(seed * 0.7) * 0.5 + 0.5);
+    const x = (baseX + xPhase * 0.1) * w;
+    const y = (baseY + yPhase * 0.1) * h;
+    
+    // Pulsing size - 2 pulses per loop
     const baseSize = 1 + (i % 3);
-    const size = baseSize + Math.sin(t * 0.5 + seed) * 0.5;
+    const size = baseSize + loopSin(normalizedTime, 2, seedNorm) * 0.5;
     
-    // Pulsing opacity
-    const alpha = 0.2 + Math.sin(t * 0.3 + seed) * 0.15;
+    // Pulsing opacity - 3 pulses per loop
+    const alpha = 0.2 + loopSin(normalizedTime, 3, seedNorm) * 0.15;
     
     ctx.beginPath();
     ctx.arc(x, y, size, 0, Math.PI * 2);
