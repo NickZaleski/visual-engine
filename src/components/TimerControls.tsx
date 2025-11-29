@@ -104,7 +104,7 @@ export function TimerControls({ onTimerStateChange }: TimerControlsProps) {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-cosmic-200 font-display tracking-wide">
-          Meditation Timer
+          Focus Timer
         </span>
         <span className={`text-xs px-2 py-0.5 rounded-full ${
           timerState === 'running' 

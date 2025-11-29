@@ -107,7 +107,7 @@ export function ControlsPanel({
           <h1 className="font-display font-bold text-lg text-white tracking-wider">
             VISUAL ENGINE
           </h1>
-          <p className="text-xs text-cosmic-400 mt-1">Cosmic meditation experience</p>
+          <p className="text-xs text-cosmic-400 mt-1">Cosmic focus experience</p>
         </div>
         
         {/* Content */}
