@@ -2,14 +2,31 @@ import type { VisualModeFunction } from '../engine';
 import { getBlobColor, hexToHsl } from '../blobColorState';
 
 /**
+ * Helper to create a loopable animation value
+ * @param normalizedTime - Time from 0 to 1 representing progress through the loop
+ * @param cycles - Number of complete cycles to perform within the loop
+ * @param phase - Phase offset (0 to 1)
+ */
+function loopSin(normalizedTime: number, cycles: number, phase: number = 0): number {
+  return Math.sin((normalizedTime + phase) * Math.PI * 2 * cycles);
+}
+
+function loopCos(normalizedTime: number, cycles: number, phase: number = 0): number {
+  return Math.cos((normalizedTime + phase) * Math.PI * 2 * cycles);
+}
+
+/**
  * BreathingBlob - Radial gradient with sinusoidal breathing and hue shift
  * Creates a meditative, pulsing central blob effect
  * Supports custom color via the blobColorState
  */
-export const BreathingBlob: VisualModeFunction = (ctx, t, w, h) => {
+export const BreathingBlob: VisualModeFunction = (ctx, t, w, h, loopDuration) => {
   const cx = w / 2;
   const cy = h / 2;
   const minDim = Math.min(w, h);
+  
+  // Calculate normalized time (0 to 1) for seamless looping
+  const normalizedTime = (t % loopDuration) / loopDuration;
   
   // Get the current blob color and convert to HSL
   const blobColor = getBlobColor();
@@ -20,25 +37,26 @@ export const BreathingBlob: VisualModeFunction = (ctx, t, w, h) => {
   ctx.fillRect(0, 0, w, h);
   
   // Add subtle star field background first (behind blob)
-  drawStarField(ctx, t, w, h);
+  drawStarField(ctx, normalizedTime, w, h);
   
   // Draw the main blob layers - more layers for depth
   const layers = 6;
   
   for (let layer = layers - 1; layer >= 0; layer--) {
-    drawBreathingLayer(ctx, t, cx, cy, minDim, layer, layers, baseHsl);
+    drawBreathingLayer(ctx, normalizedTime, cx, cy, minDim, layer, layers, baseHsl);
   }
   
   // Add bright center glow
-  drawCenterGlow(ctx, t, cx, cy, minDim, baseHsl);
+  drawCenterGlow(ctx, normalizedTime, cx, cy, minDim, baseHsl);
 };
 
 /**
  * Draw a single breathing layer - stays true to selected color
+ * Uses normalized time for seamless looping
  */
 function drawBreathingLayer(
   ctx: CanvasRenderingContext2D,
-  t: number,
+  normalizedTime: number,
   cx: number,
   cy: number,
   minDim: number,
@@ -48,14 +66,15 @@ function drawBreathingLayer(
 ): void {
   const layerOffset = layer / totalLayers;
   
-  // Breathing parameters - slower for outer layers
-  const breatheSpeed = 0.2 - layer * 0.015;
-  const breathePhase = t * breatheSpeed + layerOffset * Math.PI;
+  // Breathing parameters - use whole cycle counts for seamless looping
+  // Outer layers breathe slower (fewer cycles), inner layers breathe faster
+  const breatheCycles = 3 - layer * 0.3; // ~3 cycles for innermost, ~1.2 for outermost
   const breatheAmount = 0.1 + layer * 0.03;
   
-  // Calculate size with breathing - MUCH LARGER
+  // Calculate size with breathing using loopable sine
   const baseSize = minDim * (0.25 + layer * 0.15);
-  const size = baseSize * (1 + Math.sin(breathePhase) * breatheAmount);
+  const breatheValue = loopSin(normalizedTime, breatheCycles, layerOffset);
+  const size = baseSize * (1 + breatheValue * breatheAmount);
   
   // Keep the hue very close to selected color - only subtle variation per layer
   const hueVariation = layer * 5;
@@ -78,9 +97,10 @@ function drawBreathingLayer(
   gradient.addColorStop(0.75, `hsla(${hue}, ${saturation - 15}%, ${lightness - 10}%, ${alpha * 0.35})`);
   gradient.addColorStop(1, 'hsla(0, 0%, 0%, 0)');
   
-  // Draw the blob with gentle movement
-  const wobbleX = Math.sin(t * 0.12 + layer * 0.4) * 4;
-  const wobbleY = Math.cos(t * 0.1 + layer * 0.4) * 4;
+  // Draw the blob with gentle movement - use 2 cycles for wobble
+  const wobblePhase = layer * 0.1;
+  const wobbleX = loopSin(normalizedTime, 2, wobblePhase) * 4;
+  const wobbleY = loopCos(normalizedTime, 2, wobblePhase) * 4;
   
   ctx.save();
   ctx.translate(wobbleX, wobbleY);
@@ -93,10 +113,11 @@ function drawBreathingLayer(
 
 /**
  * Draw a subtle animated star field
+ * Uses normalized time for seamless looping
  */
 function drawStarField(
   ctx: CanvasRenderingContext2D,
-  t: number,
+  normalizedTime: number,
   w: number,
   h: number
 ): void {
@@ -109,8 +130,10 @@ function drawStarField(
     const x = (Math.sin(seed) * 0.5 + 0.5) * w;
     const y = (Math.cos(seed * 1.3) * 0.5 + 0.5) * h;
     
-    // Twinkling effect
-    const twinkle = Math.sin(t * (0.3 + (i % 5) * 0.08) + seed);
+    // Twinkling effect - different stars twinkle at different rates (1-3 cycles)
+    const twinkleCycles = 1 + (i % 5) * 0.5;
+    const twinklePhase = (seed % 1); // Random phase based on seed
+    const twinkle = loopSin(normalizedTime, twinkleCycles, twinklePhase);
     const alpha = 0.2 + (twinkle * 0.5 + 0.5) * 0.4;
     const size = 0.8 + (twinkle * 0.5 + 0.5) * 1.5;
     
@@ -123,17 +146,18 @@ function drawStarField(
 
 /**
  * Draw a bright center glow - matches selected color
+ * Uses normalized time for seamless looping
  */
 function drawCenterGlow(
   ctx: CanvasRenderingContext2D,
-  t: number,
+  normalizedTime: number,
   cx: number,
   cy: number,
   minDim: number,
   baseHsl: { h: number; s: number; l: number }
 ): void {
-  // Pulsing inner glow - slow pulse
-  const pulseAmount = 1 + Math.sin(t * 0.35) * 0.1;
+  // Pulsing inner glow - 2 complete pulses per loop for nice rhythm
+  const pulseAmount = 1 + loopSin(normalizedTime, 2) * 0.1;
   const glowSize = minDim * 0.2 * pulseAmount;
   
   // Use the exact hue from selected color

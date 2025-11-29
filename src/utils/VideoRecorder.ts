@@ -103,12 +103,13 @@ export class VideoRecorder {
         }
 
         // Calculate time for this frame (simulated time based on frame count)
-        const simulatedTime = (frameCount / fps) % duration;
+        // Time goes from 0 to duration (exclusive of duration to avoid duplicate frame)
+        const simulatedTime = (frameCount / fps);
 
-        // Clear and render
+        // Clear and render with loop duration for seamless looping
         this.ctx.fillStyle = '#0a0a1a';
         this.ctx.fillRect(0, 0, width, height);
-        mode.render(this.ctx, simulatedTime, width, height);
+        mode.render(this.ctx, simulatedTime, width, height, duration);
 
         frameCount++;
         onProgress?.(frameCount / totalFrames);

@@ -238,9 +238,8 @@ export function ControlsPanel({
                 step="1"
                 value={loopDuration}
                 onChange={(e) => onLoopDurationChange(parseInt(e.target.value))}
-                disabled={isRecording}
                 {...hoverSound}
-                className="w-full disabled:opacity-50"
+                className="w-full"
               />
               <div className="flex justify-between text-[10px] text-cosmic-500">
                 <span>8s</span>
@@ -248,68 +247,6 @@ export function ControlsPanel({
                 <span>60s</span>
               </div>
             </div>
-          </section>
-          
-          {/* Divider */}
-          <div className="border-t border-white/5" />
-
-          {/* Video Export Section */}
-          <section className="space-y-3">
-            <h2 className="text-xs font-display font-semibold text-cosmic-300 uppercase tracking-widest">
-              Export Video
-            </h2>
-            
-            {isRecording ? (
-              <div className="space-y-3">
-                {/* Progress indicator */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-cosmic-300">
-                      Rendering 1920×1080...
-                    </span>
-                    <span className="text-xs text-nebula-cyan font-mono">
-                      {Math.round(recordingProgress * 100)}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-cosmic-700/50 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-nebula-purple to-nebula-cyan transition-all duration-300 ease-out"
-                      style={{ width: `${recordingProgress * 100}%` }}
-                    />
-                  </div>
-                </div>
-                
-                {/* Cancel button */}
-                <button
-                  onClick={cancelExport}
-                  {...hoverSound}
-                  className="w-full py-2.5 rounded-xl font-display font-medium text-sm tracking-wider
-                             bg-nebula-pink/20 text-nebula-pink border border-nebula-pink/30
-                             hover:bg-nebula-pink/30 transition-all duration-300
-                             flex items-center justify-center gap-2"
-                >
-                  <CancelIcon />
-                  Cancel Export
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={startExport}
-                {...hoverSound}
-                className="w-full py-4 rounded-xl font-display font-medium text-sm tracking-wide
-                           bg-gradient-to-r from-nebula-purple/80 to-nebula-blue/80 text-white 
-                           border border-nebula-purple/30 hover:border-nebula-purple/60
-                           hover:from-nebula-purple hover:to-nebula-blue
-                           transition-all duration-300 shadow-lg shadow-nebula-purple/20
-                           flex items-center justify-center gap-3"
-              >
-                <ExportIcon />
-                <div className="text-left">
-                  <div>Export MP4</div>
-                  <div className="text-[10px] text-white/70 font-normal">1920×1080 • {loopDuration}s • 30fps</div>
-                </div>
-              </button>
-            )}
           </section>
           
           {/* Divider */}
@@ -385,23 +322,6 @@ function ExitFullscreenIcon() {
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
             d="M9 9V4m0 5H4m0 0l5-5m5 9v5m0-5h5m0 0l-5 5M9 15v5m0-5H4m0 0l5 5m5-15v-5m0 5h5m0 0l-5-5" />
-    </svg>
-  );
-}
-
-function ExportIcon() {
-  return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-    </svg>
-  );
-}
-
-function CancelIcon() {
-  return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
     </svg>
   );
 }

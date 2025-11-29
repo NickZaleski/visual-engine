@@ -4,12 +4,18 @@ import { BreathingBlob } from './modes/BreathingBlob';
 
 /**
  * Visual mode render function signature
+ * @param ctx - Canvas rendering context
+ * @param t - Current time in seconds (looped within duration)
+ * @param w - Canvas width
+ * @param h - Canvas height
+ * @param loopDuration - Duration of one complete loop in seconds (for seamless looping)
  */
 export type VisualModeFunction = (
   ctx: CanvasRenderingContext2D,
   t: number,
   w: number,
-  h: number
+  h: number,
+  loopDuration: number
 ) => void;
 
 /**
@@ -196,13 +202,14 @@ export class AnimationEngine {
     const w = this.canvas.width;
     const h = this.canvas.height;
     const t = this.timeSystem.getTime();
+    const loopDuration = this.timeSystem.getLoopDuration();
 
     // Clear canvas
     this.ctx.fillStyle = '#0a0a1a';
     this.ctx.fillRect(0, 0, w, h);
 
-    // Render current mode
-    this.currentMode.render(this.ctx, t, w, h);
+    // Render current mode with loop duration for seamless looping
+    this.currentMode.render(this.ctx, t, w, h, loopDuration);
 
     // Continue the loop
     this.animationFrameId = requestAnimationFrame(this.animate);
