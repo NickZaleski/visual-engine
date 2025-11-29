@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { visualModeRegistry } from '../visuals/engine';
 import { NoiseControls } from './NoiseControls';
+import { TimerControls, type TimerState } from './TimerControls';
 import { useHoverSound } from '../hooks/useHoverSound';
 
 interface ControlsPanelProps {
@@ -10,6 +11,7 @@ interface ControlsPanelProps {
   onLoopDurationChange: (duration: number) => void;
   blobColor: string;
   onBlobColorChange: (color: string) => void;
+  onTimerStateChange: (state: TimerState, remainingSeconds: number) => void;
 }
 
 // Preset colors for the blob
@@ -34,6 +36,7 @@ export function ControlsPanel({
   onLoopDurationChange,
   blobColor,
   onBlobColorChange,
+  onTimerStateChange,
 }: ControlsPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -109,6 +112,17 @@ export function ControlsPanel({
         
         {/* Content */}
         <div className="p-5 space-y-6 max-h-[calc(100vh-180px)] overflow-y-auto">
+          {/* Timer Section */}
+          <section className="space-y-3">
+            <h2 className="text-xs font-display font-semibold text-cosmic-300 uppercase tracking-widest">
+              Timer
+            </h2>
+            <TimerControls onTimerStateChange={onTimerStateChange} />
+          </section>
+          
+          {/* Divider */}
+          <div className="border-t border-white/5" />
+          
           {/* Visual Mode Section */}
           <section className="space-y-3">
             <h2 className="text-xs font-display font-semibold text-cosmic-300 uppercase tracking-widest">
@@ -179,35 +193,28 @@ export function ControlsPanel({
                   </div>
                 </div>
 
-                {/* Color Presets */}
-                <div className="grid grid-cols-4 gap-2">
+                {/* Color Presets - Compact */}
+                <div className="flex flex-wrap gap-1.5">
                   {colorPresets.map((preset) => (
                     <button
                       key={preset.color}
                       onClick={() => onBlobColorChange(preset.color)}
                       {...hoverSound}
                       className={`
-                        relative w-full aspect-square rounded-lg transition-all duration-300
+                        relative w-7 h-7 rounded-md transition-all duration-300
                         hover:scale-110 hover:z-10 group
                         ${blobColor.toLowerCase() === preset.color.toLowerCase() 
-                          ? 'ring-2 ring-white ring-offset-2 ring-offset-cosmic-900 scale-105' 
+                          ? 'ring-2 ring-white ring-offset-1 ring-offset-cosmic-900 scale-105' 
                           : 'hover:ring-1 hover:ring-white/50'
                         }
                       `}
                       style={{ backgroundColor: preset.color }}
                       title={preset.name}
                     >
-                      {/* Glow effect */}
-                      <div 
-                        className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                        style={{ 
-                          boxShadow: `0 0 20px ${preset.color}80`,
-                        }}
-                      />
                       {/* Checkmark for selected */}
                       {blobColor.toLowerCase() === preset.color.toLowerCase() && (
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <svg className="w-4 h-4 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
+                          <svg className="w-3 h-3 text-white drop-shadow-lg" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
                         </div>

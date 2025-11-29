@@ -14,7 +14,7 @@ const noiseTypes: { id: NoiseType; label: string; description: string }[] = [
 export function NoiseControls() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentType, setCurrentType] = useState<NoiseType>('brown');
-  const [volume, setVolume] = useState(0.5);
+  const [volume, setVolume] = useState(0.01); // Default 1%
   const noiseRef = useRef(getNoiseGenerator());
   const hoverSound = useHoverSound();
   

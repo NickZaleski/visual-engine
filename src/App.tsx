@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { VisualCanvas } from './components/VisualCanvas';
 import { ControlsPanel } from './components/ControlsPanel';
+import { TimerOverlay } from './components/TimerOverlay';
 import { setBlobColor } from './visuals/blobColorState';
+import { stopNotificationLoop } from './audio/NotificationSound';
+import type { TimerState } from './components/TimerControls';
 
 /**
  * Main application component
@@ -12,15 +15,38 @@ function App() {
   const [loopDuration, setLoopDuration] = useState(30);
   const [blobColor, setBlobColorState] = useState('#c471ed'); // Default nebula purple
   
+  // Timer state
+  const [timerState, setTimerState] = useState<TimerState>('idle');
+  const [timerRemainingSeconds, setTimerRemainingSeconds] = useState(0);
+  
   // Sync blob color with the visual mode
   useEffect(() => {
     setBlobColor(blobColor);
   }, [blobColor]);
   
+  // Handle timer state changes from ControlsPanel
+  const handleTimerStateChange = useCallback((state: TimerState, remainingSeconds: number) => {
+    setTimerState(state);
+    setTimerRemainingSeconds(remainingSeconds);
+  }, []);
+  
+  // Dismiss timer notification
+  const handleDismissTimer = useCallback(() => {
+    stopNotificationLoop();
+    setTimerState('idle');
+  }, []);
+  
   return (
     <div className="relative w-full h-screen overflow-hidden bg-cosmic-900">
       {/* Visual Canvas - Background */}
       <VisualCanvas modeId={modeId} loopDuration={loopDuration} />
+      
+      {/* Timer Overlay - shows countdown in center */}
+      <TimerOverlay
+        timerState={timerState}
+        remainingSeconds={timerRemainingSeconds}
+        onDismiss={handleDismissTimer}
+      />
       
       {/* Floating Controls Panel */}
       <ControlsPanel
@@ -30,6 +56,7 @@ function App() {
         onLoopDurationChange={setLoopDuration}
         blobColor={blobColor}
         onBlobColorChange={setBlobColorState}
+        onTimerStateChange={handleTimerStateChange}
       />
       
       {/* Subtle branding */}
