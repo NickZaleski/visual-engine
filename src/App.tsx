@@ -12,7 +12,7 @@ import type { TimerState } from './components/TimerControls';
  */
 function App() {
   const [modeId, setModeId] = useState('breathing-blob');
-  const [loopDuration, setLoopDuration] = useState(30);
+  const [loopDuration, setLoopDuration] = useState(20);
   const [blobColor, setBlobColorState] = useState('#c471ed'); // Default nebula purple
   
   // Timer state
