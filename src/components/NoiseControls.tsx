@@ -150,6 +150,19 @@ export function NoiseControls() {
       >
         Cycle Noise Type →
       </button>
+      
+      {/* Buy Me a Coffee */}
+      <a
+        href="https://buymeacoffee.com/nickzaleski"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-sm font-medium
+                   bg-[#FFDD00] hover:bg-[#FFDD00]/90 text-[#0D0C22] transition-all duration-300
+                   hover:scale-[1.02] active:scale-[0.98] shadow-md hover:shadow-lg hover:shadow-[#FFDD00]/20"
+      >
+        <CoffeeIcon />
+        Buy me a coffee
+      </a>
     </div>
   );
 }
@@ -167,6 +180,14 @@ function PauseIcon() {
   return (
     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
       <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+    </svg>
+  );
+}
+
+function CoffeeIcon() {
+  return (
+    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M4 19H18V21H4V19ZM18 10H19C19.5304 10 20.0391 10.2107 20.4142 10.5858C20.7893 10.9609 21 11.4696 21 12C21 12.5304 20.7893 13.0391 20.4142 13.4142C20.0391 13.7893 19.5304 14 19 14H18V10ZM6 8H18C18.5304 8 19.0391 8.21071 19.4142 8.58579C19.7893 8.96086 20 9.46957 20 10V16C20 16.5304 19.7893 17.0391 19.4142 17.4142C19.0391 17.7893 18.5304 18 18 18H6C5.46957 18 4.96086 17.7893 4.58579 17.4142C4.21071 17.0391 4 16.5304 4 16V10C4 9.46957 4.21071 8.96086 4.58579 8.58579C4.96086 8.21071 5.46957 8 6 8ZM6 3H18V5H6V3ZM9 6V7H15V6H9Z" />
     </svg>
   );
 }

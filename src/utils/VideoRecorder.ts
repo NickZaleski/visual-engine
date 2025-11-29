@@ -95,6 +95,11 @@ export class VideoRecorder {
       const frameDuration = 1000 / fps;
       let frameCount = 0;
       const startTime = performance.now();
+      
+      // Calculate scale factor based on reference size (1920x1080)
+      const referenceArea = 1920 * 1080;
+      const currentArea = width * height;
+      const scale = Math.sqrt(currentArea / referenceArea);
 
       const renderFrame = () => {
         if (!this.isRecording || frameCount >= totalFrames) {
@@ -109,7 +114,7 @@ export class VideoRecorder {
         // Clear and render with loop duration for seamless looping
         this.ctx.fillStyle = '#0a0a1a';
         this.ctx.fillRect(0, 0, width, height);
-        mode.render(this.ctx, simulatedTime, width, height, duration);
+        mode.render(this.ctx, simulatedTime, width, height, duration, scale);
 
         frameCount++;
         onProgress?.(frameCount / totalFrames);

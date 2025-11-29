@@ -1,0 +1,21 @@
+{
+  "name": "Visual Engine - Cosmic Meditation",
+  "short_name": "Visual Engine",
+  "description": "Immersive cosmic meditation experience with mesmerizing animated visuals",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a1a",
+  "theme_color": "#0a0a1a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "entertainment", "health"],
+  "lang": "en-US"
+}
+

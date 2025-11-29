@@ -1,0 +1,12 @@
+# Visual Engine - Cosmic Meditation Experience
+# https://visualengine.vercel.app/
+
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://visualengine.vercel.app/sitemap.xml
+
+# Crawl-delay (optional, be polite to crawlers)
+Crawl-delay: 1
+
