@@ -4,37 +4,49 @@ import type { VisualModeFunction } from '../engine';
  * Plasma - Classic morphing plasma field
  * Creates an organic, flowing plasma effect using multiple sine waves
  * Uses normalized time for seamless looping
+ * Optimized for any screen size including 8000px+ displays
  */
-export const Plasma: VisualModeFunction = (ctx, t, w, h, loopDuration) => {
+export const Plasma: VisualModeFunction = (ctx, t, w, h, loopDuration, scale) => {
   // Calculate normalized time (0 to 1) for seamless looping
   const normalizedTime = (t % loopDuration) / loopDuration;
   
+  // Dynamically adjust sample rate based on screen size
+  // Larger screens use coarser sampling for performance
+  // Base: sample every 2px at 1920x1080, scale up for larger screens
+  const baseSampleRate = 2;
+  const dynamicSampleRate = Math.max(2, Math.min(8, Math.floor(baseSampleRate * scale)));
+  
   // Create image data for pixel manipulation
-  const imageData = ctx.createImageData(w, h);
+  // Use a smaller buffer and scale it up for huge screens
+  const bufferScale = scale > 2 ? Math.min(4, Math.floor(scale)) : 1;
+  const bufferW = Math.ceil(w / bufferScale);
+  const bufferH = Math.ceil(h / bufferScale);
+  
+  const imageData = ctx.createImageData(bufferW, bufferH);
   const data = imageData.data;
   
-  // Plasma parameters
-  const scale = 0.01; // Size of the plasma cells
+  // Plasma parameters - scale cell size with screen
+  const plasmaScale = 0.01 / Math.max(1, scale * 0.5);
   
   // Precompute some values
-  const cx = w / 2;
-  const cy = h / 2;
+  const cx = bufferW / 2;
+  const cy = bufferH / 2;
   
-  // Sample at lower resolution for performance, then scale
-  const sampleRate = 2; // Sample every 2 pixels
+  // Adjust sample rate for the buffer
+  const sampleRate = Math.max(1, Math.floor(dynamicSampleRate / bufferScale));
   
-  for (let y = 0; y < h; y += sampleRate) {
-    for (let x = 0; x < w; x += sampleRate) {
+  for (let y = 0; y < bufferH; y += sampleRate) {
+    for (let x = 0; x < bufferW; x += sampleRate) {
       // Calculate plasma value using multiple sine waves with normalized time
-      const value = calculatePlasmaValue(x, y, normalizedTime, cx, cy, scale);
+      const value = calculatePlasmaValue(x, y, normalizedTime, cx, cy, plasmaScale);
       
       // Convert to color with normalized time
       const color = plasmaColorPalette(value, normalizedTime);
       
       // Fill the sampled area
-      for (let dy = 0; dy < sampleRate && y + dy < h; dy++) {
-        for (let dx = 0; dx < sampleRate && x + dx < w; dx++) {
-          const idx = ((y + dy) * w + (x + dx)) * 4;
+      for (let dy = 0; dy < sampleRate && y + dy < bufferH; dy++) {
+        for (let dx = 0; dx < sampleRate && x + dx < bufferW; dx++) {
+          const idx = ((y + dy) * bufferW + (x + dx)) * 4;
           data[idx] = color.r;
           data[idx + 1] = color.g;
           data[idx + 2] = color.b;
@@ -44,7 +56,22 @@ export const Plasma: VisualModeFunction = (ctx, t, w, h, loopDuration) => {
     }
   }
   
-  ctx.putImageData(imageData, 0, 0);
+  // For small screens or scale <= 1, draw directly
+  if (bufferScale <= 1) {
+    ctx.putImageData(imageData, 0, 0);
+  } else {
+    // For large screens, draw to offscreen canvas and scale up
+    const offscreen = new OffscreenCanvas(bufferW, bufferH);
+    const offCtx = offscreen.getContext('2d');
+    if (offCtx) {
+      offCtx.putImageData(imageData, 0, 0);
+      
+      // Enable image smoothing for upscaling
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(offscreen, 0, 0, w, h);
+    }
+  }
   
   // Add subtle glow overlay with normalized time
   addGlowOverlay(ctx, normalizedTime, w, h);
@@ -137,4 +164,3 @@ function addGlowOverlay(
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, w, h);
 }
-

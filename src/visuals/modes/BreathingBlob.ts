@@ -19,8 +19,9 @@ function loopCos(normalizedTime: number, cycles: number, phase: number = 0): num
  * BreathingBlob - Radial gradient with sinusoidal breathing and hue shift
  * Creates a meditative, pulsing central blob effect
  * Supports custom color via the blobColorState
+ * Scales properly for any screen size including 8000px+
  */
-export const BreathingBlob: VisualModeFunction = (ctx, t, w, h, loopDuration) => {
+export const BreathingBlob: VisualModeFunction = (ctx, t, w, h, loopDuration, scale) => {
   const cx = w / 2;
   const cy = h / 2;
   const minDim = Math.min(w, h);
@@ -37,13 +38,14 @@ export const BreathingBlob: VisualModeFunction = (ctx, t, w, h, loopDuration) =>
   ctx.fillRect(0, 0, w, h);
   
   // Add subtle star field background first (behind blob)
-  drawStarField(ctx, normalizedTime, w, h);
+  // Scale star count with screen area
+  drawStarField(ctx, normalizedTime, w, h, scale);
   
   // Draw the main blob layers - more layers for depth
   const layers = 6;
   
   for (let layer = layers - 1; layer >= 0; layer--) {
-    drawBreathingLayer(ctx, normalizedTime, cx, cy, minDim, layer, layers, baseHsl);
+    drawBreathingLayer(ctx, normalizedTime, cx, cy, minDim, layer, layers, baseHsl, scale);
   }
   
   // Add bright center glow
@@ -53,6 +55,7 @@ export const BreathingBlob: VisualModeFunction = (ctx, t, w, h, loopDuration) =>
 /**
  * Draw a single breathing layer - stays true to selected color
  * Uses normalized time for seamless looping
+ * Scales wobble effect with screen size
  */
 function drawBreathingLayer(
   ctx: CanvasRenderingContext2D,
@@ -62,7 +65,8 @@ function drawBreathingLayer(
   minDim: number,
   layer: number,
   totalLayers: number,
-  baseHsl: { h: number; s: number; l: number }
+  baseHsl: { h: number; s: number; l: number },
+  scale: number
 ): void {
   const layerOffset = layer / totalLayers;
   
@@ -98,9 +102,11 @@ function drawBreathingLayer(
   gradient.addColorStop(1, 'hsla(0, 0%, 0%, 0)');
   
   // Draw the blob with gentle movement - use 2 cycles for wobble
+  // Scale wobble amount with screen size so it's visible on large displays
   const wobblePhase = layer * 0.1;
-  const wobbleX = loopSin(normalizedTime, 2, wobblePhase) * 4;
-  const wobbleY = loopCos(normalizedTime, 2, wobblePhase) * 4;
+  const wobbleAmount = 4 * scale; // Scale wobble with screen size
+  const wobbleX = loopSin(normalizedTime, 2, wobblePhase) * wobbleAmount;
+  const wobbleY = loopCos(normalizedTime, 2, wobblePhase) * wobbleAmount;
   
   ctx.save();
   ctx.translate(wobbleX, wobbleY);
@@ -114,28 +120,42 @@ function drawBreathingLayer(
 /**
  * Draw a subtle animated star field
  * Uses normalized time for seamless looping
+ * Scales star count and size with screen dimensions
  */
 function drawStarField(
   ctx: CanvasRenderingContext2D,
   normalizedTime: number,
   w: number,
-  h: number
+  h: number,
+  scale: number
 ): void {
-  const starCount = 80;
+  // Scale star count with screen area (more stars on larger screens)
+  // Base: 80 stars at 1920x1080, scales up proportionally
+  const baseStarCount = 80;
+  const starCount = Math.floor(baseStarCount * scale * scale);
   
-  for (let i = 0; i < starCount; i++) {
+  // Clamp to reasonable range to prevent performance issues
+  const clampedStarCount = Math.min(Math.max(starCount, 40), 800);
+  
+  for (let i = 0; i < clampedStarCount; i++) {
     const seed = i * 97.531;
     
-    // Fixed position based on seed
-    const x = (Math.sin(seed) * 0.5 + 0.5) * w;
-    const y = (Math.cos(seed * 1.3) * 0.5 + 0.5) * h;
+    // Fixed position based on seed - use better distribution for large screens
+    // Use golden ratio for more even distribution
+    const goldenAngle = i * 2.39996323; // Golden angle in radians
+    const radius = Math.sqrt(i / clampedStarCount);
+    const x = (0.5 + radius * Math.cos(goldenAngle) * 0.5) * w;
+    const y = (0.5 + radius * Math.sin(goldenAngle) * 0.5) * h;
     
     // Twinkling effect - different stars twinkle at different rates (1-3 cycles)
     const twinkleCycles = 1 + (i % 5) * 0.5;
     const twinklePhase = (seed % 1); // Random phase based on seed
     const twinkle = loopSin(normalizedTime, twinkleCycles, twinklePhase);
     const alpha = 0.2 + (twinkle * 0.5 + 0.5) * 0.4;
-    const size = 0.8 + (twinkle * 0.5 + 0.5) * 1.5;
+    
+    // Scale star size with screen size
+    const baseSize = 0.8 + (twinkle * 0.5 + 0.5) * 1.5;
+    const size = baseSize * Math.max(1, scale * 0.7);
     
     ctx.beginPath();
     ctx.arc(x, y, size, 0, Math.PI * 2);

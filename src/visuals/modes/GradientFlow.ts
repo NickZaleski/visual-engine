@@ -32,8 +32,9 @@ const colorStops: ColorStop[] = [
  * GradientFlow - Slow animated multi-stop gradient
  * Creates a mesmerizing flowing gradient effect
  * Uses normalized time for seamless looping
+ * Scales properly for any screen size including 8000px+
  */
-export const GradientFlow: VisualModeFunction = (ctx, t, w, h, loopDuration) => {
+export const GradientFlow: VisualModeFunction = (ctx, t, w, h, loopDuration, scale) => {
   // Calculate normalized time (0 to 1) for seamless looping
   const normalizedTime = (t % loopDuration) / loopDuration;
   
@@ -91,23 +92,31 @@ export const GradientFlow: VisualModeFunction = (ctx, t, w, h, loopDuration) => 
   ctx.fillStyle = radialGradient;
   ctx.fillRect(0, 0, w, h);
   
-  // Add floating particles effect
-  drawParticles(ctx, normalizedTime, w, h);
+  // Add floating particles effect - scale with screen size
+  drawParticles(ctx, normalizedTime, w, h, scale);
 };
 
 /**
  * Draw subtle floating particles
  * Uses normalized time for seamless looping
+ * Scales particle count and size with screen dimensions
  */
 function drawParticles(
   ctx: CanvasRenderingContext2D,
   normalizedTime: number,
   w: number,
-  h: number
+  h: number,
+  scale: number
 ): void {
-  const particleCount = 30;
+  // Scale particle count with screen area (more particles on larger screens)
+  // Base: 30 particles at 1920x1080, scales up proportionally
+  const baseParticleCount = 30;
+  const particleCount = Math.floor(baseParticleCount * scale * scale);
   
-  for (let i = 0; i < particleCount; i++) {
+  // Clamp to reasonable range to prevent performance issues
+  const clampedParticleCount = Math.min(Math.max(particleCount, 15), 300);
+  
+  for (let i = 0; i < clampedParticleCount; i++) {
     const seed = i * 137.508; // Golden angle for distribution
     const seedNorm = (seed % 1); // Normalized seed for phase
     
@@ -118,15 +127,21 @@ function drawParticles(
     const xPhase = loopSin(normalizedTime, moveCycles, seedNorm);
     const yPhase = loopSin(normalizedTime, moveCycles * 0.8, seedNorm * 0.7);
     
-    // Use seed for base position, animation for movement
-    const baseX = (Math.sin(seed) * 0.5 + 0.5);
-    const baseY = (Math.cos(seed * 0.7) * 0.5 + 0.5);
-    const x = (baseX + xPhase * 0.1) * w;
-    const y = (baseY + yPhase * 0.1) * h;
+    // Use golden ratio spiral for better distribution on large screens
+    const goldenAngle = i * 2.39996323; // Golden angle in radians
+    const radius = Math.sqrt(i / clampedParticleCount);
+    const baseX = 0.5 + radius * Math.cos(goldenAngle) * 0.5;
+    const baseY = 0.5 + radius * Math.sin(goldenAngle) * 0.5;
+    
+    // Scale movement range with screen size
+    const movementScale = 0.1 * Math.max(1, scale * 0.5);
+    const x = (baseX + xPhase * movementScale) * w;
+    const y = (baseY + yPhase * movementScale) * h;
     
     // Pulsing size - 2 pulses per loop
-    const baseSize = 1 + (i % 3);
-    const size = baseSize + loopSin(normalizedTime, 2, seedNorm) * 0.5;
+    // Scale particle size with screen size
+    const baseSize = (1 + (i % 3)) * Math.max(1, scale * 0.7);
+    const size = baseSize + loopSin(normalizedTime, 2, seedNorm) * 0.5 * scale;
     
     // Pulsing opacity - 3 pulses per loop
     const alpha = 0.2 + loopSin(normalizedTime, 3, seedNorm) * 0.15;

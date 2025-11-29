@@ -6,16 +6,18 @@ import { BreathingBlob } from './modes/BreathingBlob';
  * Visual mode render function signature
  * @param ctx - Canvas rendering context
  * @param t - Current time in seconds (looped within duration)
- * @param w - Canvas width
- * @param h - Canvas height
+ * @param w - Canvas width (display size, not buffer size)
+ * @param h - Canvas height (display size, not buffer size)
  * @param loopDuration - Duration of one complete loop in seconds (for seamless looping)
+ * @param scale - Scale factor for size-dependent elements (based on screen dimensions)
  */
 export type VisualModeFunction = (
   ctx: CanvasRenderingContext2D,
   t: number,
   w: number,
   h: number,
-  loopDuration: number
+  loopDuration: number,
+  scale: number
 ) => void;
 
 /**
@@ -140,6 +142,7 @@ export class TimeSystem {
 
 /**
  * Animation engine for managing the render loop
+ * Supports any screen size including 8000px+ displays
  */
 export class AnimationEngine {
   private canvas: HTMLCanvasElement | null = null;
@@ -148,6 +151,14 @@ export class AnimationEngine {
   private currentMode: VisualMode;
   private timeSystem: TimeSystem;
   private isRunning: boolean = false;
+  
+  // Display dimensions (CSS pixels, what users see)
+  private displayWidth: number = 0;
+  private displayHeight: number = 0;
+  private dpr: number = 1;
+  
+  // Reference size for scaling (based on 1920x1080 as baseline)
+  private static readonly REFERENCE_AREA = 1920 * 1080;
 
   constructor(loopDuration: number = 30) {
     this.currentMode = visualModeRegistry[0];
@@ -194,22 +205,34 @@ export class AnimationEngine {
   }
 
   /**
+   * Calculate scale factor for the current screen size
+   * Returns a value that scales visual elements proportionally
+   */
+  private getScaleFactor(): number {
+    const currentArea = this.displayWidth * this.displayHeight;
+    // Scale proportionally to screen area, with square root for perceptual balance
+    return Math.sqrt(currentArea / AnimationEngine.REFERENCE_AREA);
+  }
+
+  /**
    * Main animation loop
    */
   private animate = (): void => {
     if (!this.canvas || !this.ctx || !this.isRunning) return;
 
-    const w = this.canvas.width;
-    const h = this.canvas.height;
+    // Use display dimensions (CSS pixels), not canvas buffer size
+    const w = this.displayWidth || this.canvas.width / this.dpr;
+    const h = this.displayHeight || this.canvas.height / this.dpr;
     const t = this.timeSystem.getTime();
     const loopDuration = this.timeSystem.getLoopDuration();
+    const scale = this.getScaleFactor();
 
-    // Clear canvas
+    // Clear canvas (using display dimensions since context is scaled)
     this.ctx.fillStyle = '#0a0a1a';
     this.ctx.fillRect(0, 0, w, h);
 
-    // Render current mode with loop duration for seamless looping
-    this.currentMode.render(this.ctx, t, w, h, loopDuration);
+    // Render current mode with loop duration and scale factor for seamless looping
+    this.currentMode.render(this.ctx, t, w, h, loopDuration, scale);
 
     // Continue the loop
     this.animationFrameId = requestAnimationFrame(this.animate);
@@ -246,11 +269,18 @@ export class AnimationEngine {
 
   /**
    * Resize the canvas
+   * @param bufferWidth - Actual canvas buffer width (pixels)
+   * @param bufferHeight - Actual canvas buffer height (pixels)
+   * @param dpr - Device pixel ratio used
    */
-  resize(width: number, height: number): void {
+  resize(bufferWidth: number, bufferHeight: number, dpr: number = 1): void {
     if (this.canvas) {
-      this.canvas.width = width;
-      this.canvas.height = height;
+      this.canvas.width = bufferWidth;
+      this.canvas.height = bufferHeight;
+      this.dpr = dpr;
+      // Store display dimensions for rendering calculations
+      this.displayWidth = bufferWidth / dpr;
+      this.displayHeight = bufferHeight / dpr;
     }
   }
 
