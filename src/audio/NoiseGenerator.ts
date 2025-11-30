@@ -1,3 +1,5 @@
+import { getSharedAudioContext, ensureAudioContextReady } from './AudioContextManager';
+
 /**
  * Noise type enumeration
  */
@@ -9,7 +11,6 @@ export type NoiseType = 'white' | 'pink' | 'brown';
  * Uses short looping buffers for instant start
  */
 export class NoiseGenerator {
-  private audioContext: AudioContext | null = null;
   private noiseNode: AudioBufferSourceNode | null = null;
   private gainNode: GainNode | null = null;
   private isPlaying: boolean = false;
@@ -21,17 +22,17 @@ export class NoiseGenerator {
   private readonly sampleRate = 44100;
   
   constructor() {
-    // AudioContext will be created on first play (user interaction required)
+    // Gain node will be created on first play
   }
   
   /**
-   * Initialize the audio context
+   * Initialize the gain node
    */
-  private initContext(): void {
-    if (!this.audioContext) {
-      this.audioContext = new AudioContext();
-      this.gainNode = this.audioContext.createGain();
-      this.gainNode.connect(this.audioContext.destination);
+  private initGain(): void {
+    if (!this.gainNode) {
+      const audioContext = getSharedAudioContext();
+      this.gainNode = audioContext.createGain();
+      this.gainNode.connect(audioContext.destination);
       this.gainNode.gain.value = this.volume;
     }
   }
@@ -40,10 +41,9 @@ export class NoiseGenerator {
    * Generate white noise buffer
    */
   private generateWhiteNoise(): AudioBuffer {
-    if (!this.audioContext) throw new Error('AudioContext not initialized');
-    
+    const audioContext = getSharedAudioContext();
     const bufferSize = this.sampleRate * this.bufferDuration;
-    const buffer = this.audioContext.createBuffer(2, bufferSize, this.sampleRate);
+    const buffer = audioContext.createBuffer(2, bufferSize, this.sampleRate);
     
     for (let channel = 0; channel < 2; channel++) {
       const data = buffer.getChannelData(channel);
@@ -59,10 +59,9 @@ export class NoiseGenerator {
    * Generate pink noise buffer using Paul Kellet's refined algorithm
    */
   private generatePinkNoise(): AudioBuffer {
-    if (!this.audioContext) throw new Error('AudioContext not initialized');
-    
+    const audioContext = getSharedAudioContext();
     const bufferSize = this.sampleRate * this.bufferDuration;
-    const buffer = this.audioContext.createBuffer(2, bufferSize, this.sampleRate);
+    const buffer = audioContext.createBuffer(2, bufferSize, this.sampleRate);
     
     for (let channel = 0; channel < 2; channel++) {
       const data = buffer.getChannelData(channel);
@@ -92,10 +91,9 @@ export class NoiseGenerator {
    * Generate brown (Brownian/red) noise buffer
    */
   private generateBrownNoise(): AudioBuffer {
-    if (!this.audioContext) throw new Error('AudioContext not initialized');
-    
+    const audioContext = getSharedAudioContext();
     const bufferSize = this.sampleRate * this.bufferDuration;
-    const buffer = this.audioContext.createBuffer(2, bufferSize, this.sampleRate);
+    const buffer = audioContext.createBuffer(2, bufferSize, this.sampleRate);
     
     for (let channel = 0; channel < 2; channel++) {
       const data = buffer.getChannelData(channel);
@@ -137,16 +135,14 @@ export class NoiseGenerator {
       this.currentType = type;
     }
     
-    // Initialize context (requires user interaction)
-    this.initContext();
+    // Ensure audio context is ready
+    await ensureAudioContextReady();
     
-    if (!this.audioContext || !this.gainNode) {
-      throw new Error('Failed to initialize audio context');
-    }
+    // Initialize gain node
+    this.initGain();
     
-    // Resume audio context if suspended
-    if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
+    if (!this.gainNode) {
+      throw new Error('Failed to initialize gain node');
     }
     
     // Stop current noise if playing
@@ -158,7 +154,8 @@ export class NoiseGenerator {
     const buffer = this.getNoiseBuffer(this.currentType);
     
     // Create source node
-    this.noiseNode = this.audioContext.createBufferSource();
+    const audioContext = getSharedAudioContext();
+    this.noiseNode = audioContext.createBufferSource();
     this.noiseNode.buffer = buffer;
     this.noiseNode.loop = true;
     this.noiseNode.connect(this.gainNode);
@@ -213,6 +210,10 @@ export class NoiseGenerator {
    */
   setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
+    // Initialize gain if not already created
+    if (!this.gainNode) {
+      this.initGain();
+    }
     if (this.gainNode) {
       this.gainNode.gain.value = this.volume;
     }
@@ -248,11 +249,10 @@ export class NoiseGenerator {
    */
   destroy(): void {
     this.stop();
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.audioContext = null;
+    if (this.gainNode) {
+      this.gainNode.disconnect();
+      this.gainNode = null;
     }
-    this.gainNode = null;
   }
 }
 

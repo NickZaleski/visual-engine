@@ -1,37 +1,24 @@
+import { getSharedAudioContext, ensureAudioContextReady } from './AudioContextManager';
+
 /**
  * Notification sound generator for timer completion
  * Creates a gentle, mid-low-end bell/chime sound
  */
 
-let audioContext: AudioContext | null = null;
 let isPlaying = false;
 let oscillators: OscillatorNode[] = [];
 let gainNodes: GainNode[] = [];
 
 /**
- * Initialize the audio context
- */
-function getAudioContext(): AudioContext {
-  if (!audioContext) {
-    audioContext = new AudioContext();
-  }
-  return audioContext;
-}
-
-/**
  * Play a gentle notification sound
  * Mid-low frequency, not loud, pleasant chime
  */
-export function playNotificationSound(): void {
+export async function playNotificationSound(): Promise<void> {
   if (isPlaying) return;
   
-  const ctx = getAudioContext();
+  await ensureAudioContextReady();
+  const ctx = getSharedAudioContext();
   isPlaying = true;
-  
-  // Resume context if suspended
-  if (ctx.state === 'suspended') {
-    ctx.resume();
-  }
   
   // Frequencies for a gentle bell chord (mid-low range)
   const frequencies = [220, 277.18, 329.63]; // A3, C#4, E4 - A major chord, lower octave
@@ -76,7 +63,7 @@ export function playNotificationSound(): void {
 export function stopNotificationSound(): void {
   if (!isPlaying) return;
   
-  const ctx = getAudioContext();
+  const ctx = getSharedAudioContext();
   const now = ctx.currentTime;
   
   // Fade out quickly
@@ -113,10 +100,10 @@ export function isNotificationPlaying(): boolean {
  */
 let loopInterval: number | null = null;
 
-export function startNotificationLoop(): void {
+export async function startNotificationLoop(): Promise<void> {
   if (loopInterval) return;
   
-  playNotificationSound();
+  await playNotificationSound();
   loopInterval = window.setInterval(() => {
     playNotificationSound();
   }, 4000); // Repeat every 4 seconds

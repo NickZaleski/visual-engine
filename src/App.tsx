@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { VisualCanvas } from './components/VisualCanvas';
 import { ControlsPanel } from './components/ControlsPanel';
 import { TimerOverlay } from './components/TimerOverlay';
 import { setBlobColor } from './visuals/blobColorState';
 import { stopNotificationLoop } from './audio/NotificationSound';
+import { initializeAudioContext } from './audio/AudioContextManager';
 import type { TimerState } from './components/TimerControls';
 
 /**
@@ -18,6 +19,38 @@ function App() {
   // Timer state
   const [timerState, setTimerState] = useState<TimerState>('idle');
   const [timerRemainingSeconds, setTimerRemainingSeconds] = useState(0);
+  
+  // Initialize audio context on first user interaction
+  const audioInitialized = useRef(false);
+  useEffect(() => {
+    const initAudio = async () => {
+      if (!audioInitialized.current) {
+        // Initialize on any user interaction (including mouse move for hover sounds)
+        const handleInteraction = async () => {
+          if (!audioInitialized.current) {
+            audioInitialized.current = true;
+            try {
+              await initializeAudioContext();
+            } catch (error) {
+              console.debug('Audio context initialization:', error);
+            }
+            // Remove listeners after first initialization
+            document.removeEventListener('click', handleInteraction);
+            document.removeEventListener('touchstart', handleInteraction);
+            document.removeEventListener('keydown', handleInteraction);
+            document.removeEventListener('mousemove', handleInteraction);
+          }
+        };
+        
+        document.addEventListener('click', handleInteraction, { once: true });
+        document.addEventListener('touchstart', handleInteraction, { once: true });
+        document.addEventListener('keydown', handleInteraction, { once: true });
+        document.addEventListener('mousemove', handleInteraction, { once: true });
+      }
+    };
+    
+    initAudio();
+  }, []);
   
   // Sync blob color with the visual mode
   useEffect(() => {

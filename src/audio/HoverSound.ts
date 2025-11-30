@@ -1,10 +1,11 @@
+import { getSharedAudioContext, ensureAudioContextReady } from './AudioContextManager';
+
 /**
  * HoverSound - Generates soft, calm hover sounds for UI interactions
  * Uses low to low-middle frequency tones with smooth envelopes
  */
 
 class HoverSoundGenerator {
-  private audioContext: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private isEnabled: boolean = true;
   private volume: number = 0.08; // Very subtle volume
@@ -13,18 +14,20 @@ class HoverSoundGenerator {
   private readonly baseFrequency = 180;
   
   constructor() {
-    // AudioContext will be created on first interaction
+    // Master gain will be created on first use
   }
   
   /**
-   * Initialize the audio context (must be called after user interaction)
+   * Initialize the master gain node
    */
-  private initContext(): void {
-    if (!this.audioContext) {
-      this.audioContext = new AudioContext();
-      this.masterGain = this.audioContext.createGain();
-      this.masterGain.gain.value = this.volume;
-      this.masterGain.connect(this.audioContext.destination);
+  private initGain(): void {
+    if (!this.masterGain) {
+      const audioContext = getSharedAudioContext();
+      this.masterGain = audioContext.createGain();
+      // Use setValueAtTime to ensure volume is set correctly
+      const now = audioContext.currentTime;
+      this.masterGain.gain.setValueAtTime(this.volume, now);
+      this.masterGain.connect(audioContext.destination);
     }
   }
   
@@ -32,10 +35,8 @@ class HoverSoundGenerator {
    * Ensure audio context is ready
    */
   private async ensureContext(): Promise<void> {
-    this.initContext();
-    if (this.audioContext && this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-    }
+    await ensureAudioContextReady();
+    this.initGain();
   }
   
   /**
@@ -48,35 +49,36 @@ class HoverSoundGenerator {
     try {
       await this.ensureContext();
       
-      if (!this.audioContext || !this.masterGain) return;
+      if (!this.masterGain) return;
       
-      const now = this.audioContext.currentTime;
+      const audioContext = getSharedAudioContext();
+      const now = audioContext.currentTime;
       
       // Create oscillator for the fundamental tone
-      const osc1 = this.audioContext.createOscillator();
+      const osc1 = audioContext.createOscillator();
       osc1.type = 'sine';
       osc1.frequency.value = this.baseFrequency;
       
       // Create a second oscillator for subtle harmonic warmth (perfect fifth above, quieter)
-      const osc2 = this.audioContext.createOscillator();
+      const osc2 = audioContext.createOscillator();
       osc2.type = 'sine';
       osc2.frequency.value = this.baseFrequency * 1.5; // Perfect fifth
       
       // Create a third oscillator for sub-bass depth
-      const osc3 = this.audioContext.createOscillator();
+      const osc3 = audioContext.createOscillator();
       osc3.type = 'sine';
       osc3.frequency.value = this.baseFrequency * 0.5; // Octave below
       
       // Individual gain nodes for mixing
-      const gain1 = this.audioContext.createGain();
-      const gain2 = this.audioContext.createGain();
-      const gain3 = this.audioContext.createGain();
+      const gain1 = audioContext.createGain();
+      const gain2 = audioContext.createGain();
+      const gain3 = audioContext.createGain();
       
       // Output envelope
-      const envelope = this.audioContext.createGain();
+      const envelope = audioContext.createGain();
       
       // Low-pass filter for warmth
-      const filter = this.audioContext.createBiquadFilter();
+      const filter = audioContext.createBiquadFilter();
       filter.type = 'lowpass';
       filter.frequency.value = 400;
       filter.Q.value = 0.5;
@@ -142,8 +144,14 @@ class HoverSoundGenerator {
    */
   setVolume(volume: number): void {
     this.volume = Math.max(0, Math.min(1, volume));
+    // Initialize gain if not already created
+    if (!this.masterGain) {
+      this.initGain();
+    }
     if (this.masterGain) {
-      this.masterGain.gain.value = this.volume;
+      const audioContext = getSharedAudioContext();
+      const now = audioContext.currentTime;
+      this.masterGain.gain.setValueAtTime(this.volume, now);
     }
   }
   
@@ -172,11 +180,10 @@ class HoverSoundGenerator {
    * Clean up resources
    */
   destroy(): void {
-    if (this.audioContext) {
-      this.audioContext.close();
-      this.audioContext = null;
+    if (this.masterGain) {
+      this.masterGain.disconnect();
+      this.masterGain = null;
     }
-    this.masterGain = null;
   }
 }
 

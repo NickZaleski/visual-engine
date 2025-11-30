@@ -33,7 +33,7 @@ export function TimerControls({ onTimerStateChange }: TimerControlsProps) {
           if (prev <= 1) {
             // Timer finished
             setTimerState('finished');
-            startNotificationLoop();
+            startNotificationLoop().catch(console.error);
             return 0;
           }
           return prev - 1;
