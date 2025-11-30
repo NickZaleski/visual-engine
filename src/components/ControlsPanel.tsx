@@ -172,7 +172,7 @@ export function ControlsPanel({
                       onChange={(e) => onBlobColorChange(e.target.value)}
                       {...hoverSound}
                       className="w-12 h-12 rounded-xl cursor-pointer border-2 border-cosmic-500/30 
-                                 hover:border-nebula-purple/50 transition-all duration-300"
+                                 hover:border-nebula-purple/50 transition-all duration-300 overflow-hidden"
                       style={{ 
                         backgroundColor: blobColor,
                         padding: 0,

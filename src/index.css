@@ -103,3 +103,26 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 0 10px rgba(196, 113, 237, 0.6);
 }
 
+/* Color input styling - remove default square indicator */
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 0;
+}
+
+input[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: 0;
+}
+

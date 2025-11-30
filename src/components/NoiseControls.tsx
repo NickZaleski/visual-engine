@@ -141,16 +141,6 @@ export function NoiseControls() {
         </span>
       </button>
       
-      {/* Quick Cycle Button */}
-      <button
-        onClick={cycleType}
-        {...hoverSound}
-        className="w-full py-2 rounded-lg text-xs text-cosmic-400 hover:text-cosmic-200 
-                   border border-cosmic-600/30 hover:border-cosmic-500/50 transition-all duration-300"
-      >
-        Cycle Noise Type →
-      </button>
-      
       {/* Buy Me a Coffee */}
       <a
         href="https://buymeacoffee.com/nickzaleski"
