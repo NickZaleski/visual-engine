@@ -1,9 +1,12 @@
 import { useCallback, useRef } from 'react';
-import { playHoverSound, getHoverSound } from '../audio/HoverSound';
+import { playHoverSound, getHoverSound, initHoverSound } from '../audio/HoverSound';
 
 /**
  * Hook to add hover sound to any element
  * Returns event handlers to spread onto the element
+ * 
+ * Note: Browsers require a user gesture (click/touch) before audio can play.
+ * The first interaction on any element with hover sound will enable audio.
  */
 export function useHoverSound() {
   // Debounce to prevent rapid-fire sounds
@@ -18,8 +21,15 @@ export function useHoverSound() {
     }
   }, []);
   
+  // Initialize audio on first pointer down (valid user gesture)
+  // This ensures audio works after clicking ANY element with hover sound
+  const onPointerDown = useCallback(() => {
+    initHoverSound();
+  }, []);
+  
   return {
     onMouseEnter,
+    onPointerDown,
   };
 }
 

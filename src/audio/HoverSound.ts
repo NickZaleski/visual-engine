@@ -1,4 +1,4 @@
-import { getSharedAudioContext, ensureAudioContextReady } from './AudioContextManager';
+import { getSharedAudioContext, ensureAudioContextReady, initializeAudioContext } from './AudioContextManager';
 
 /**
  * HoverSound - Generates soft, calm hover sounds for UI interactions
@@ -8,7 +8,9 @@ import { getSharedAudioContext, ensureAudioContextReady } from './AudioContextMa
 class HoverSoundGenerator {
   private masterGain: GainNode | null = null;
   private isEnabled: boolean = true;
-  private volume: number = 0.08; // Very subtle volume
+  private isInitialized: boolean = false;
+  private isReady: boolean = false; // True after priming is complete
+  private readonly volume: number = 0.08; // Very subtle volume - CONSTANT
   
   // Base frequency for the calm tone (around 180Hz - low/low-mid)
   private readonly baseFrequency = 180;
@@ -18,17 +20,66 @@ class HoverSoundGenerator {
   }
   
   /**
+   * Initialize the audio system (call on first user interaction)
+   */
+  async init(): Promise<void> {
+    if (this.isInitialized) return;
+    this.isInitialized = true;
+    
+    try {
+      await initializeAudioContext();
+      this.initGain();
+      // Prime the audio system with a silent sound to prevent loud first play
+      this.primAudio();
+    } catch (error) {
+      this.isInitialized = false;
+      console.debug('HoverSound init failed:', error);
+    }
+  }
+  
+  /**
    * Initialize the master gain node
    */
   private initGain(): void {
     if (!this.masterGain) {
       const audioContext = getSharedAudioContext();
       this.masterGain = audioContext.createGain();
-      // Use setValueAtTime to ensure volume is set correctly
-      const now = audioContext.currentTime;
-      this.masterGain.gain.setValueAtTime(this.volume, now);
+      // Set volume directly for consistency
+      this.masterGain.gain.value = this.volume;
       this.masterGain.connect(audioContext.destination);
     }
+  }
+  
+  /**
+   * Prime the audio system with a silent sound
+   * This prevents the first real sound from being unexpectedly loud
+   */
+  private primAudio(): void {
+    if (!this.masterGain) return;
+    
+    const audioContext = getSharedAudioContext();
+    const now = audioContext.currentTime;
+    
+    // Create a silent oscillator to prime the audio pipeline
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    
+    // Set gain to 0 (silent)
+    gain.gain.setValueAtTime(0, now);
+    
+    // Play for a tiny moment
+    osc.start(now);
+    osc.stop(now + 0.05);
+    
+    // Mark as ready after priming completes
+    setTimeout(() => {
+      osc.disconnect();
+      gain.disconnect();
+      this.isReady = true;
+    }, 100);
   }
   
   /**
@@ -45,6 +96,15 @@ class HoverSoundGenerator {
    */
   async playHover(): Promise<void> {
     if (!this.isEnabled) return;
+    
+    // Don't play until audio system is primed and ready
+    if (!this.isReady) {
+      // Try to initialize if not done yet
+      if (!this.isInitialized) {
+        await this.init();
+      }
+      return; // Skip this sound, next hover will work
+    }
     
     try {
       await this.ensureContext();
@@ -141,17 +201,12 @@ class HoverSoundGenerator {
   
   /**
    * Set the master volume (0-1)
+   * Note: Volume is fixed at 0.08 for consistency
    */
-  setVolume(volume: number): void {
-    this.volume = Math.max(0, Math.min(1, volume));
-    // Initialize gain if not already created
-    if (!this.masterGain) {
-      this.initGain();
-    }
+  setVolume(_volume: number): void {
+    // Volume is now fixed - ignore parameter for consistency
     if (this.masterGain) {
-      const audioContext = getSharedAudioContext();
-      const now = audioContext.currentTime;
-      this.masterGain.gain.setValueAtTime(this.volume, now);
+      this.masterGain.gain.value = this.volume;
     }
   }
   
@@ -205,5 +260,12 @@ export function getHoverSound(): HoverSoundGenerator {
  */
 export function playHoverSound(): void {
   getHoverSound().playHover();
+}
+
+/**
+ * Initialize hover sound system - call on first user interaction
+ */
+export function initHoverSound(): void {
+  getHoverSound().init();
 }
 

@@ -21,35 +21,36 @@ function App() {
   const [timerRemainingSeconds, setTimerRemainingSeconds] = useState(0);
   
   // Initialize audio context on first user interaction
+  // Note: Browsers require a real user gesture (click/touch/keydown) for audio
+  // Hover sounds will work after the first click anywhere on the page
   const audioInitialized = useRef(false);
   useEffect(() => {
-    const initAudio = async () => {
-      if (!audioInitialized.current) {
-        // Initialize on any user interaction (including mouse move for hover sounds)
-        const handleInteraction = async () => {
-          if (!audioInitialized.current) {
-            audioInitialized.current = true;
-            try {
-              await initializeAudioContext();
-            } catch (error) {
-              console.debug('Audio context initialization:', error);
-            }
-            // Remove listeners after first initialization
-            document.removeEventListener('click', handleInteraction);
-            document.removeEventListener('touchstart', handleInteraction);
-            document.removeEventListener('keydown', handleInteraction);
-            document.removeEventListener('mousemove', handleInteraction);
-          }
-        };
-        
-        document.addEventListener('click', handleInteraction, { once: true });
-        document.addEventListener('touchstart', handleInteraction, { once: true });
-        document.addEventListener('keydown', handleInteraction, { once: true });
-        document.addEventListener('mousemove', handleInteraction, { once: true });
+    const handleInteraction = async () => {
+      if (audioInitialized.current) return;
+      audioInitialized.current = true;
+      
+      try {
+        await initializeAudioContext();
+      } catch (error) {
+        console.debug('Audio context initialization:', error);
       }
+      
+      // Remove all listeners after initialization
+      document.removeEventListener('click', handleInteraction, true);
+      document.removeEventListener('touchstart', handleInteraction, true);
+      document.removeEventListener('keydown', handleInteraction, true);
     };
     
-    initAudio();
+    // Use capture phase to ensure we catch the event before any stopPropagation
+    document.addEventListener('click', handleInteraction, true);
+    document.addEventListener('touchstart', handleInteraction, true);
+    document.addEventListener('keydown', handleInteraction, true);
+    
+    return () => {
+      document.removeEventListener('click', handleInteraction, true);
+      document.removeEventListener('touchstart', handleInteraction, true);
+      document.removeEventListener('keydown', handleInteraction, true);
+    };
   }, []);
   
   // Sync blob color with the visual mode
