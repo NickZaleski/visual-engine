@@ -6,7 +6,6 @@
 
 class AudioContextManager {
   private audioContext: AudioContext | null = null;
-  private initializationAttempted = false;
 
   /**
    * Get or create the shared AudioContext
@@ -15,7 +14,6 @@ class AudioContextManager {
   getContext(): AudioContext {
     if (!this.audioContext) {
       this.audioContext = new AudioContext();
-      this.initializationAttempted = true;
     }
     return this.audioContext;
   }
@@ -26,7 +24,6 @@ class AudioContextManager {
   async initialize(): Promise<void> {
     if (!this.audioContext) {
       this.audioContext = new AudioContext();
-      this.initializationAttempted = true;
     }
     
     if (this.audioContext.state === 'suspended') {
@@ -67,7 +64,6 @@ class AudioContextManager {
       this.audioContext.close();
       this.audioContext = null;
     }
-    this.initializationAttempted = false;
   }
 }
 
