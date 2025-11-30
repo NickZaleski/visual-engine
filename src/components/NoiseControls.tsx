@@ -43,13 +43,6 @@ export function NoiseControls() {
     }
   };
   
-  // Cycle through noise types
-  const cycleType = async () => {
-    const currentIndex = noiseTypes.findIndex(t => t.id === currentType);
-    const nextIndex = (currentIndex + 1) % noiseTypes.length;
-    await handleTypeChange(noiseTypes[nextIndex].id);
-  };
-  
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
