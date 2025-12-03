@@ -1,8 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { VisualCanvas } from './components/VisualCanvas';
-import { ControlsPanel } from './components/ControlsPanel';
+import { SoundPanel } from './components/SoundPanel';
+import { VisualPanel } from './components/VisualPanel';
 import { TimerOverlay } from './components/TimerOverlay';
+import { FullscreenControl } from './components/FullscreenControl';
 import { setBlobColor } from './visuals/blobColorState';
+import { setGradientColor } from './visuals/gradientColorState';
 import { stopNotificationLoop } from './audio/NotificationSound';
 import { initializeAudioContext } from './audio/AudioContextManager';
 import type { TimerState } from './components/TimerControls';
@@ -13,8 +16,9 @@ import type { TimerState } from './components/TimerControls';
  */
 function App() {
   const [modeId, setModeId] = useState('breathing-blob');
-  const [loopDuration, setLoopDuration] = useState(20);
+  const [loopDuration] = useState(20);
   const [blobColor, setBlobColorState] = useState('#c471ed'); // Default nebula purple
+  const [gradientColorState, setGradientColorState] = useState('#8b5cf6'); // Default violet
   
   // Timer state
   const [timerState, setTimerState] = useState<TimerState>('idle');
@@ -58,6 +62,11 @@ function App() {
     setBlobColor(blobColor);
   }, [blobColor]);
   
+  // Sync gradient color with the visual mode
+  useEffect(() => {
+    setGradientColor(gradientColorState);
+  }, [gradientColorState]);
+  
   // Handle timer state changes from ControlsPanel
   const handleTimerStateChange = useCallback((state: TimerState, remainingSeconds: number) => {
     setTimerState(state);
@@ -82,22 +91,40 @@ function App() {
         onDismiss={handleDismissTimer}
       />
       
-      {/* Floating Controls Panel */}
-      <ControlsPanel
+      {/* Sound Panel - Left Side */}
+      <SoundPanel />
+      
+      {/* Visual Panel - Right Side */}
+      <VisualPanel
         modeId={modeId}
         onModeChange={setModeId}
-        loopDuration={loopDuration}
-        onLoopDurationChange={setLoopDuration}
         blobColor={blobColor}
         onBlobColorChange={setBlobColorState}
+        gradientColor={gradientColorState}
+        onGradientColorChange={setGradientColorState}
         onTimerStateChange={handleTimerStateChange}
       />
+      
+      {/* Fullscreen Controls - Bottom Center */}
+      <FullscreenControl />
       
       {/* Subtle branding */}
       <div className="fixed bottom-4 left-4 z-40 opacity-30 hover:opacity-60 transition-opacity duration-500">
         <p className="text-[10px] text-cosmic-400 font-display tracking-widest">
           VISUAL ENGINE FOR FOCUS TIMER by Nick Zaleski
         </p>
+      </div>
+      
+      {/* Subtle coffee link */}
+      <div className="fixed bottom-4 right-4 z-40 opacity-20 hover:opacity-50 transition-opacity duration-500">
+        <a
+          href="https://buymeacoffee.com/nickzaleski"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[10px] text-cosmic-400 font-display tracking-wider hover:text-cosmic-300 transition-colors"
+        >
+          ☕ Support
+        </a>
       </div>
     </div>
   );

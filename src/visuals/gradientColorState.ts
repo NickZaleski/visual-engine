@@ -1,36 +1,36 @@
 /**
- * Global state for the blob color
- * This allows the BreathingBlob visual mode to access the current color
- * without passing it through the render function signature
+ * Global state for gradient flow color
+ * This allows the UI to control the gradient's base color
  */
 
-let currentBlobColor = '#c471ed'; // Default nebula purple
+// Default gradient color (purple)
+let gradientColor = '#8b5cf6';
 
 /**
- * Set the blob color
+ * Set the gradient color
  */
-export function setBlobColor(color: string): void {
-  currentBlobColor = color;
+export function setGradientColor(color: string): void {
+  gradientColor = color;
 }
 
 /**
- * Get the current blob color
+ * Get the current gradient color
  */
-export function getBlobColor(): string {
-  return currentBlobColor;
+export function getGradientColor(): string {
+  return gradientColor;
 }
 
 /**
- * Parse hex color to HSL values
+ * Convert hex color to HSL
  */
 export function hexToHsl(hex: string): { h: number; s: number; l: number } {
   // Remove # if present
   hex = hex.replace(/^#/, '');
   
   // Parse hex values
-  const r = parseInt(hex.slice(0, 2), 16) / 255;
-  const g = parseInt(hex.slice(2, 4), 16) / 255;
-  const b = parseInt(hex.slice(4, 6), 16) / 255;
+  const r = parseInt(hex.substring(0, 2), 16) / 255;
+  const g = parseInt(hex.substring(2, 4), 16) / 255;
+  const b = parseInt(hex.substring(4, 6), 16) / 255;
   
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
@@ -61,6 +61,5 @@ export function hexToHsl(hex: string): { h: number; s: number; l: number } {
     l: Math.round(l * 100),
   };
 }
-
 
 

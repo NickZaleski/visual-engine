@@ -223,7 +223,8 @@ export class AnimationEngine {
     // Use display dimensions (CSS pixels), not canvas buffer size
     const w = this.displayWidth || this.canvas.width / this.dpr;
     const h = this.displayHeight || this.canvas.height / this.dpr;
-    const t = this.timeSystem.getTime();
+    // Use raw time for infinite animations (no loop reset)
+    const t = this.timeSystem.getRawTime();
     const loopDuration = this.timeSystem.getLoopDuration();
     const scale = this.getScaleFactor();
 
@@ -231,7 +232,7 @@ export class AnimationEngine {
     this.ctx.fillStyle = '#0a0a1a';
     this.ctx.fillRect(0, 0, w, h);
 
-    // Render current mode with loop duration and scale factor for seamless looping
+    // Render current mode with loop duration and scale factor
     this.currentMode.render(this.ctx, t, w, h, loopDuration, scale);
 
     // Continue the loop

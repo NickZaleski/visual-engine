@@ -1,53 +1,51 @@
 import { useState, useEffect, useRef } from 'react';
-import { getNoiseGenerator, type NoiseType } from '../audio/NoiseGenerator';
+import { getFrequencyGenerator, frequencyTypes, type FrequencyType } from '../audio/FrequencyGenerator';
 import { useHoverSound } from '../hooks/useHoverSound';
 
-const noiseTypes: { id: NoiseType; label: string; description: string }[] = [
-  { id: 'white', label: 'White', description: 'Bright, even frequencies' },
-  { id: 'pink', label: 'Pink', description: 'Balanced, natural sound' },
-  { id: 'brown', label: 'Brown', description: 'Deep, rumbling bass' },
-];
-
 /**
- * UI component for controlling noise generation
+ * UI component for controlling frequency/binaural beat generation
  */
-export function NoiseControls() {
+export function FrequencyControls() {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [currentType, setCurrentType] = useState<NoiseType>('brown');
-  const [volume, setVolume] = useState(0.01); // Default 1%
-  const noiseRef = useRef(getNoiseGenerator());
+  const [currentType, setCurrentType] = useState<FrequencyType>('40hz-gamma');
+  const [volume, setVolume] = useState(0.15); // Default 15%
+  const freqRef = useRef(getFrequencyGenerator());
   const hoverSound = useHoverSound();
   
-  // Update noise generator when volume changes
+  // Update generator when volume changes
   useEffect(() => {
-    noiseRef.current.setVolume(volume);
+    freqRef.current.setVolume(volume);
   }, [volume]);
   
   // Toggle playback
   const handleToggle = async () => {
     try {
-      await noiseRef.current.toggle();
-      setIsPlaying(noiseRef.current.getIsPlaying());
+      await freqRef.current.toggle();
+      setIsPlaying(freqRef.current.getIsPlaying());
     } catch (error) {
-      console.error('Error toggling noise:', error);
+      console.error('Error toggling frequency:', error);
     }
   };
   
-  // Change noise type
-  const handleTypeChange = async (type: NoiseType) => {
+  // Change frequency type
+  const handleTypeChange = async (type: FrequencyType) => {
     setCurrentType(type);
     try {
-      await noiseRef.current.setType(type);
+      await freqRef.current.setType(type);
     } catch (error) {
-      console.error('Error changing noise type:', error);
+      console.error('Error changing frequency type:', error);
     }
   };
+
+  // Get current frequency config
+  const currentFreq = frequencyTypes.find(t => t.id === currentType);
+  const isBinaural = currentFreq && currentFreq.beatFreq > 0;
   
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-cosmic-200 font-display tracking-wide">
-          Ambient Noise
+          Frequencies
         </span>
         <span className={`text-xs px-2 py-0.5 rounded-full ${
           isPlaying 
@@ -57,23 +55,28 @@ export function NoiseControls() {
           {isPlaying ? 'Playing' : 'Stopped'}
         </span>
       </div>
+
+      {/* Info about headphones for binaural */}
+      <p className="text-[10px] text-cosmic-500 bg-cosmic-800/30 rounded-lg px-3 py-2">
+        🎧 Use headphones for binaural beats (Hz values). Pure tones work with speakers.
+      </p>
       
-      {/* Noise Type Selector */}
-      <div className="grid grid-cols-3 gap-2">
-        {noiseTypes.map((type) => (
+      {/* Frequency Type Selector - Grid layout */}
+      <div className="grid grid-cols-2 gap-2">
+        {frequencyTypes.map((type) => (
           <button
             key={type.id}
             onClick={() => handleTypeChange(type.id)}
             {...hoverSound}
             className={`
-              relative px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300
+              relative px-3 py-2 rounded-lg text-xs font-medium transition-all duration-300 text-left
               ${currentType === type.id
                 ? 'bg-gradient-to-r from-nebula-purple/30 to-nebula-blue/30 text-white border border-nebula-purple/50'
                 : 'bg-cosmic-700/30 text-cosmic-300 border border-transparent hover:bg-cosmic-600/40 hover:text-cosmic-100'
               }
             `}
           >
-            {type.label}
+            <span className="block font-semibold">{type.label}</span>
             {currentType === type.id && (
               <span className="absolute -top-1 -right-1 w-2 h-2 bg-nebula-cyan rounded-full animate-pulse" />
             )}
@@ -83,7 +86,10 @@ export function NoiseControls() {
       
       {/* Type Description */}
       <p className="text-xs text-cosmic-400 italic">
-        {noiseTypes.find(t => t.id === currentType)?.description}
+        {currentFreq?.description}
+        {isBinaural && (
+          <span className="text-nebula-cyan"> (Binaural)</span>
+        )}
       </p>
       
       {/* Volume Slider */}
@@ -115,7 +121,7 @@ export function NoiseControls() {
           transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]
           ${isPlaying
             ? 'bg-gradient-to-r from-nebula-pink/80 to-nebula-purple/80 text-white shadow-lg shadow-nebula-pink/20'
-            : 'bg-gradient-to-r from-nebula-blue/80 to-nebula-cyan/80 text-white shadow-lg shadow-nebula-blue/20'
+            : 'bg-gradient-to-r from-nebula-purple/80 to-nebula-blue/80 text-white shadow-lg shadow-nebula-purple/20'
           }
         `}
       >
@@ -123,12 +129,12 @@ export function NoiseControls() {
           {isPlaying ? (
             <>
               <PauseIcon />
-              Pause Noise
+              Pause Frequency
             </>
           ) : (
             <>
               <PlayIcon />
-              Start Noise
+              Start Frequency
             </>
           )}
         </span>
