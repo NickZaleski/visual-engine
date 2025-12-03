@@ -70,18 +70,38 @@ export function FullscreenControl() {
 
 function FullscreenIcon() {
   return (
-    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-            d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      {/* Top-left corner - arrow pointing out */}
+      <path d="M8 3H5a2 2 0 00-2 2v3" />
+      <path d="M3 3l6 6" />
+      {/* Top-right corner - arrow pointing out */}
+      <path d="M16 3h3a2 2 0 012 2v3" />
+      <path d="M21 3l-6 6" />
+      {/* Bottom-left corner - arrow pointing out */}
+      <path d="M8 21H5a2 2 0 01-2-2v-3" />
+      <path d="M3 21l6-6" />
+      {/* Bottom-right corner - arrow pointing out */}
+      <path d="M16 21h3a2 2 0 002-2v-3" />
+      <path d="M21 21l-6-6" />
     </svg>
   );
 }
 
 function ExitFullscreenIcon() {
   return (
-    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-            d="M9 9V4m0 5H4m0 0l5-5m5 9v5m0-5h5m0 0l-5 5M9 15v5m0-5H4m0 0l5 5m5-15v-5m0 5h5m0 0l-5-5" />
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      {/* Top-left corner - arrow pointing in */}
+      <path d="M4 14h4v4" />
+      <path d="M3 21l5-5" />
+      {/* Top-right corner - arrow pointing in */}
+      <path d="M20 14h-4v4" />
+      <path d="M21 21l-5-5" />
+      {/* Bottom-left corner - arrow pointing in */}
+      <path d="M4 10h4V6" />
+      <path d="M3 3l5 5" />
+      {/* Bottom-right corner - arrow pointing in */}
+      <path d="M20 10h-4V6" />
+      <path d="M21 3l-5 5" />
     </svg>
   );
 }
