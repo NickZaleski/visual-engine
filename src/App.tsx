@@ -115,17 +115,20 @@ function App() {
         </p>
       </div>
       
-      {/* Subtle coffee link */}
-      <div className="fixed bottom-4 right-4 z-40 opacity-20 hover:opacity-50 transition-opacity duration-500">
-        <a
-          href="https://buymeacoffee.com/nickzaleski"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[10px] text-cosmic-400 font-display tracking-wider hover:text-cosmic-300 transition-colors"
-        >
-          ☕ Support
-        </a>
-      </div>
+      {/* Coffee support link */}
+      <a
+        href="https://buymeacoffee.com/nickzaleski"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                   bg-cosmic-800/40 backdrop-blur-sm border border-cosmic-600/20
+                   text-xs text-cosmic-300 font-display tracking-wider
+                   opacity-40 hover:opacity-90 hover:bg-cosmic-700/50 hover:text-cosmic-100 hover:border-cosmic-500/30
+                   transition-all duration-300"
+      >
+        <span>☕</span>
+        <span>Support</span>
+      </a>
     </div>
   );
 }
