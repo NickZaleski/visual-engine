@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useHoverSound } from '../hooks/useHoverSound';
 import { startNotificationLoop, stopNotificationLoop } from '../audio/NotificationSound';
+import { playTimerStartSound } from '../audio/TimerSound';
 
 export type TimerState = 'idle' | 'running' | 'paused' | 'finished';
 
 interface TimerControlsProps {
   onTimerStateChange: (state: TimerState, remainingSeconds: number) => void;
+  externalReset?: boolean; // When true, reset timer to idle
+  onResetHandled?: () => void; // Called after handling reset
 }
 
 const PRESET_MINUTES = [10, 25, 60];
@@ -13,12 +16,22 @@ const PRESET_MINUTES = [10, 25, 60];
 /**
  * Timer controls component with start/pause/stop functionality
  */
-export function TimerControls({ onTimerStateChange }: TimerControlsProps) {
+export function TimerControls({ onTimerStateChange, externalReset, onResetHandled }: TimerControlsProps) {
   const [duration, setDuration] = useState(25); // minutes
   const [remainingSeconds, setRemainingSeconds] = useState(25 * 60);
   const [timerState, setTimerState] = useState<TimerState>('idle');
   const intervalRef = useRef<number | null>(null);
   const hoverSound = useHoverSound();
+  
+  // Handle external reset (e.g., from overlay dismiss)
+  useEffect(() => {
+    if (externalReset) {
+      setTimerState('idle');
+      setRemainingSeconds(duration * 60);
+      stopNotificationLoop();
+      onResetHandled?.();
+    }
+  }, [externalReset, duration, onResetHandled]);
   
   // Update parent when state changes
   useEffect(() => {
@@ -67,6 +80,8 @@ export function TimerControls({ onTimerStateChange }: TimerControlsProps) {
       setRemainingSeconds(duration * 60);
     }
     setTimerState('running');
+    // Play subtle start sound
+    playTimerStartSound().catch(console.debug);
   }, [duration, timerState]);
   
   // Pause timer

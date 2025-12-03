@@ -11,6 +11,8 @@ interface VisualPanelProps {
   gradientColor: string;
   onGradientColorChange: (color: string) => void;
   onTimerStateChange: (state: TimerState, remainingSeconds: number) => void;
+  timerReset?: boolean;
+  onTimerResetHandled?: () => void;
 }
 
 // Preset colors for visuals
@@ -36,6 +38,8 @@ export function VisualPanel({
   gradientColor,
   onGradientColorChange,
   onTimerStateChange,
+  timerReset,
+  onTimerResetHandled,
 }: VisualPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const hoverSound = useHoverSound();
@@ -92,7 +96,11 @@ export function VisualPanel({
             <h2 className="text-xs font-display font-semibold text-cosmic-300 uppercase tracking-widest">
               Timer
             </h2>
-            <TimerControls onTimerStateChange={onTimerStateChange} />
+            <TimerControls 
+              onTimerStateChange={onTimerStateChange}
+              externalReset={timerReset}
+              onResetHandled={onTimerResetHandled}
+            />
           </section>
           
           {/* Divider */}

@@ -251,7 +251,7 @@ export class NoiseGenerator {
     this.stop();
     if (this.gainNode) {
       this.gainNode.disconnect();
-      this.gainNode = null;
+    this.gainNode = null;
     }
   }
 }

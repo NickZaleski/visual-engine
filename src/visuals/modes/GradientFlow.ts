@@ -25,7 +25,7 @@ function generateColorStops(baseHsl: { h: number; s: number; l: number }) {
     { hue: (baseHue + 180) % 360, saturation: Math.min(100, baseSat + 30), lightness: Math.min(65, baseLit + 15), cycleDuration: CYCLE_DURATION * 0.67, offset: 0.5 },
     { hue: (baseHue + 220) % 360, saturation: Math.min(100, baseSat + 15), lightness: Math.min(55, baseLit + 5), cycleDuration: CYCLE_DURATION * 0.4, offset: 0.75 },
     { hue: (baseHue - 40 + 360) % 360, saturation: baseSat, lightness: Math.max(15, baseLit - 20), cycleDuration: CYCLE_DURATION, offset: 1 },
-  ];
+];
 }
 
 /**

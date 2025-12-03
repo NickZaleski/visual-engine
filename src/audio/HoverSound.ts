@@ -237,7 +237,7 @@ class HoverSoundGenerator {
   destroy(): void {
     if (this.masterGain) {
       this.masterGain.disconnect();
-      this.masterGain = null;
+    this.masterGain = null;
     }
   }
 }

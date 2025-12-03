@@ -23,6 +23,7 @@ function App() {
   // Timer state
   const [timerState, setTimerState] = useState<TimerState>('idle');
   const [timerRemainingSeconds, setTimerRemainingSeconds] = useState(0);
+  const [timerReset, setTimerReset] = useState(false);
   
   // Initialize audio context on first user interaction
   // Note: Browsers require a real user gesture (click/touch/keydown) for audio
@@ -77,6 +78,12 @@ function App() {
   const handleDismissTimer = useCallback(() => {
     stopNotificationLoop();
     setTimerState('idle');
+    setTimerReset(true); // Trigger reset in TimerControls
+  }, []);
+  
+  // Handle when timer reset is complete
+  const handleTimerResetHandled = useCallback(() => {
+    setTimerReset(false);
   }, []);
   
   return (
@@ -103,6 +110,8 @@ function App() {
         gradientColor={gradientColorState}
         onGradientColorChange={setGradientColorState}
         onTimerStateChange={handleTimerStateChange}
+        timerReset={timerReset}
+        onTimerResetHandled={handleTimerResetHandled}
       />
       
       {/* Fullscreen Controls - Bottom Center */}
