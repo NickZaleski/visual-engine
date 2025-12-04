@@ -91,45 +91,89 @@ function App() {
       {/* Visual Canvas - Background */}
       <VisualCanvas modeId={modeId} loopDuration={loopDuration} />
       
-      {/* Timer Overlay - shows countdown in center */}
-      <TimerOverlay
-        timerState={timerState}
-        remainingSeconds={timerRemainingSeconds}
-        onDismiss={handleDismissTimer}
-      />
+      {/* Mobile Message Overlay - visible only on small screens (< 768px) */}
+      <div className="fixed inset-0 z-50 flex md:hidden items-center justify-center bg-cosmic-900/80 backdrop-blur-md">
+        <div className="text-center px-8 py-10 max-w-sm">
+          {/* Desktop icon */}
+          <div className="mb-6 flex justify-center">
+            <svg 
+              className="w-16 h-16 text-nebula-purple opacity-80" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={1.5} 
+                d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" 
+              />
+            </svg>
+          </div>
+          
+          {/* Title */}
+          <h2 className="text-xl font-display font-semibold text-cosmic-100 mb-3 tracking-wide">
+            Desktop Experience Only
+          </h2>
+          
+          {/* Message */}
+          <p className="text-cosmic-300 text-sm leading-relaxed mb-6">
+            This visual meditation tool is designed for larger screens. 
+            Please visit on a desktop or laptop for the best experience.
+          </p>
+          
+          {/* Decorative gradient line */}
+          <div className="w-24 h-0.5 mx-auto bg-gradient-to-r from-nebula-purple via-nebula-cyan to-nebula-pink rounded-full opacity-60" />
+        </div>
+      </div>
       
-      {/* Sound Panel - Left Side */}
-      <SoundPanel />
+      {/* Timer Overlay - shows countdown in center (desktop only) */}
+      <div className="hidden md:block">
+        <TimerOverlay
+          timerState={timerState}
+          remainingSeconds={timerRemainingSeconds}
+          onDismiss={handleDismissTimer}
+        />
+      </div>
       
-      {/* Visual Panel - Right Side */}
-      <VisualPanel
-        modeId={modeId}
-        onModeChange={setModeId}
-        blobColor={blobColor}
-        onBlobColorChange={setBlobColorState}
-        gradientColor={gradientColorState}
-        onGradientColorChange={setGradientColorState}
-        onTimerStateChange={handleTimerStateChange}
-        timerReset={timerReset}
-        onTimerResetHandled={handleTimerResetHandled}
-      />
+      {/* Sound Panel - Left Side (desktop only) */}
+      <div className="hidden md:block">
+        <SoundPanel />
+      </div>
       
-      {/* Fullscreen Controls - Bottom Center */}
-      <FullscreenControl />
+      {/* Visual Panel - Right Side (desktop only) */}
+      <div className="hidden md:block">
+        <VisualPanel
+          modeId={modeId}
+          onModeChange={setModeId}
+          blobColor={blobColor}
+          onBlobColorChange={setBlobColorState}
+          gradientColor={gradientColorState}
+          onGradientColorChange={setGradientColorState}
+          onTimerStateChange={handleTimerStateChange}
+          timerReset={timerReset}
+          onTimerResetHandled={handleTimerResetHandled}
+        />
+      </div>
       
-      {/* Subtle branding */}
-      <div className="fixed bottom-4 left-4 z-40 opacity-30 hover:opacity-60 transition-opacity duration-500">
+      {/* Fullscreen Controls - Bottom Center (desktop only) */}
+      <div className="hidden md:block">
+        <FullscreenControl />
+      </div>
+      
+      {/* Subtle branding (desktop only) */}
+      <div className="hidden md:block fixed bottom-4 left-4 z-40 opacity-30 hover:opacity-60 transition-opacity duration-500">
         <p className="text-[10px] text-cosmic-400 font-display tracking-widest">
           VISUAL ENGINE FOR FOCUS TIMER by Nick Zaleski
         </p>
       </div>
       
-      {/* Coffee support link */}
+      {/* Coffee support link (desktop only) */}
       <a
         href="https://buymeacoffee.com/nickzaleski"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-4 right-4 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+        className="hidden md:flex fixed bottom-4 right-4 z-40 items-center gap-1.5 px-3 py-1.5 rounded-lg
                    bg-cosmic-800/40 backdrop-blur-sm border border-cosmic-600/20
                    text-xs text-cosmic-300 font-display tracking-wider
                    opacity-40 hover:opacity-90 hover:bg-cosmic-700/50 hover:text-cosmic-100 hover:border-cosmic-500/30
