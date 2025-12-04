@@ -1,7 +1,7 @@
 {
-  "name": "Visual Engine - Cosmic Meditation",
-  "short_name": "Visual Engine",
-  "description": "Immersive cosmic meditation experience with mesmerizing animated visuals",
+  "name": "Focus Flow - Ambient Noise & Focus Timer",
+  "short_name": "Focus Flow",
+  "description": "White, pink & brown noise plus focus frequencies with a timer and calming visuals. Perfect for deep work, studying, and staying focused.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0a0a1a",
@@ -15,7 +15,7 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["lifestyle", "entertainment", "health"],
+  "categories": ["productivity", "lifestyle", "health"],
   "lang": "en-US"
 }
 

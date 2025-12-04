@@ -164,7 +164,7 @@ function App() {
       {/* Subtle branding (desktop only) */}
       <div className="hidden md:block fixed bottom-4 left-4 z-40 opacity-30 hover:opacity-60 transition-opacity duration-500">
         <p className="text-[10px] text-cosmic-400 font-display tracking-widest">
-          VISUAL ENGINE FOR FOCUS TIMER by Nick Zaleski
+          FOCUS FLOW by Nick Zaleski
         </p>
       </div>
       
