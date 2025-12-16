@@ -57,9 +57,9 @@ export function TimerOverlay({ timerState, remainingSeconds, onDismiss }: TimerO
             {/* Status indicator - always reserve space to prevent layout shift */}
             <div className="mt-4 h-7 text-lg font-display tracking-widest uppercase"
               style={{ color: timerState === 'paused' ? 'rgba(196, 113, 237, 0.4)' : 'transparent' }}
-            >
+              >
               {timerState === 'paused' ? 'Paused' : '\u00A0'}
-            </div>
+              </div>
           </div>
         )}
         

@@ -168,20 +168,38 @@ function App() {
         </p>
       </div>
       
-      {/* Coffee support link (desktop only) */}
-      <a
-        href="https://buymeacoffee.com/nickzaleski"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="hidden md:flex fixed bottom-4 right-4 z-40 items-center gap-1.5 px-3 py-1.5 rounded-lg
-                   bg-cosmic-800/40 backdrop-blur-sm border border-cosmic-600/20
-                   text-xs text-cosmic-300 font-display tracking-wider
-                   opacity-40 hover:opacity-90 hover:bg-cosmic-700/50 hover:text-cosmic-100 hover:border-cosmic-500/30
-                   transition-all duration-300"
-      >
-        <span>☕</span>
-        <span>Support</span>
-      </a>
+      {/* Support & Contact (desktop only) */}
+      <div className="hidden md:flex fixed bottom-4 right-4 z-40 items-center gap-3">
+        {/* Email */}
+        <a
+          href="mailto:sidfedner27@gmail.com"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                     bg-cosmic-800/40 backdrop-blur-sm border border-cosmic-600/20
+                     text-xs text-cosmic-300 font-display tracking-wider
+                     opacity-40 hover:opacity-90 hover:bg-cosmic-700/50 hover:text-cosmic-100 hover:border-cosmic-500/30
+                     transition-all duration-300"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <span>Contact</span>
+        </a>
+        
+        {/* Coffee support */}
+        <a
+          href="https://buymeacoffee.com/nickzaleski"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+                     bg-cosmic-800/40 backdrop-blur-sm border border-cosmic-600/20
+                     text-xs text-cosmic-300 font-display tracking-wider
+                     opacity-40 hover:opacity-90 hover:bg-cosmic-700/50 hover:text-cosmic-100 hover:border-cosmic-500/30
+                     transition-all duration-300"
+        >
+          <span>☕</span>
+          <span>Support</span>
+        </a>
+      </div>
     </div>
   );
 }
