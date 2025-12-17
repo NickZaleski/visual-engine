@@ -4,6 +4,7 @@ import { SoundPanel } from './components/SoundPanel';
 import { VisualPanel } from './components/VisualPanel';
 import { TimerOverlay } from './components/TimerOverlay';
 import { FullscreenControl } from './components/FullscreenControl';
+import { WelcomePopup } from './components/WelcomePopup';
 import { setBlobColor } from './visuals/blobColorState';
 import { setGradientColor } from './visuals/gradientColorState';
 import { stopNotificationLoop } from './audio/NotificationSound';
@@ -24,6 +25,17 @@ function App() {
   const [timerState, setTimerState] = useState<TimerState>('idle');
   const [timerRemainingSeconds, setTimerRemainingSeconds] = useState(0);
   const [timerReset, setTimerReset] = useState(false);
+  
+  // Welcome popup state
+  const [showWelcome, setShowWelcome] = useState(() => {
+    // Show popup if user hasn't seen it yet
+    return !localStorage.getItem('focusflow_welcome_seen');
+  });
+  
+  const handleCloseWelcome = useCallback(() => {
+    localStorage.setItem('focusflow_welcome_seen', 'true');
+    setShowWelcome(false);
+  }, []);
   
   // Initialize audio context on first user interaction
   // Note: Browsers require a real user gesture (click/touch/keydown) for audio
@@ -169,20 +181,14 @@ function App() {
       </div>
       
       {/* Support & Contact (desktop only) */}
-      <div className="hidden md:flex fixed bottom-4 right-4 z-40 items-center gap-3">
-        {/* Email */}
+      <div className="hidden md:flex fixed bottom-4 right-4 z-40 items-center gap-4">
+        {/* Email - plain text */}
         <a
           href="mailto:sidfedner27@gmail.com"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                     bg-cosmic-800/40 backdrop-blur-sm border border-cosmic-600/20
-                     text-xs text-cosmic-300 font-display tracking-wider
-                     opacity-40 hover:opacity-90 hover:bg-cosmic-700/50 hover:text-cosmic-100 hover:border-cosmic-500/30
-                     transition-all duration-300"
+          className="text-[11px] text-cosmic-500 hover:text-cosmic-300 
+                     transition-colors duration-300 opacity-60 hover:opacity-100"
         >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          <span>Contact</span>
+          sidfedner27@gmail.com
         </a>
         
         {/* Coffee support */}
@@ -200,6 +206,9 @@ function App() {
           <span>Support</span>
         </a>
       </div>
+      
+      {/* Welcome Popup - shown on first visit */}
+      {showWelcome && <WelcomePopup onClose={handleCloseWelcome} />}
     </div>
   );
 }
