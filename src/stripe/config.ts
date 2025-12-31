@@ -39,14 +39,15 @@ const getApiUrl = () => {
     return import.meta.env.VITE_API_URL;
   }
   
-  // In development (localhost), use local server or Firebase emulator
-  if (import.meta.env.DEV || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    // Use localhost:4242 for local development (legacy server)
-    // Or use Firebase emulator: http://localhost:5001/calm-down-space/us-central1
+  // Check if running on localhost (browser check, not build-time)
+  const isLocalhost = typeof window !== 'undefined' && 
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+  
+  if (isLocalhost) {
     return 'http://localhost:4242';
   }
   
-  // In production, use Firebase Cloud Functions
+  // Production: use Firebase Cloud Functions
   return `https://${FIREBASE_REGION}-${FIREBASE_PROJECT}.cloudfunctions.net`;
 };
 
