@@ -4,11 +4,17 @@ import { SoundPanel } from './components/SoundPanel';
 import { VisualPanel } from './components/VisualPanel';
 import { TimerOverlay } from './components/TimerOverlay';
 import { FullscreenControl } from './components/FullscreenControl';
-import { WelcomePopup } from './components/WelcomePopup';
+import { PaywallModal } from './components/PaywallModal';
+import { LoginModal } from './components/LoginModal';
+import { ActivateSubscriptionModal } from './components/ActivateSubscriptionModal';
+import { TermsModal } from './components/TermsModal';
 import { setBlobColor } from './visuals/blobColorState';
 import { setGradientColor } from './visuals/gradientColorState';
 import { stopNotificationLoop } from './audio/NotificationSound';
 import { initializeAudioContext } from './audio/AudioContextManager';
+import { useAuth } from './contexts/AuthContext';
+import { useSubscription } from './hooks/useSubscription';
+import { linkSubscription } from './stripe/config';
 import type { TimerState } from './components/TimerControls';
 
 /**
@@ -16,7 +22,10 @@ import type { TimerState } from './components/TimerControls';
  * Combines the visual canvas with floating control panel
  */
 function App() {
-  const [modeId, setModeId] = useState('breathing-blob');
+  const { user, loading: authLoading, signOut, isConfigured, refreshUserData } = useAuth();
+  const { isPaid, isLoading: subscriptionLoading } = useSubscription();
+  
+  const [modeId, setModeId] = useState('nebula-clouds');
   const [loopDuration] = useState(20);
   const [blobColor, setBlobColorState] = useState('#c471ed'); // Default nebula purple
   const [gradientColorState, setGradientColorState] = useState('#8b5cf6'); // Default violet
@@ -26,20 +35,119 @@ function App() {
   const [timerRemainingSeconds, setTimerRemainingSeconds] = useState(0);
   const [timerReset, setTimerReset] = useState(false);
   
-  // Welcome popup state
-  const [showWelcome, setShowWelcome] = useState(() => {
-    // Show popup if user hasn't seen it yet
-    return !localStorage.getItem('focusflow_welcome_seen');
+  // Modal states
+  const [showLogin, setShowLogin] = useState(false);
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [showActivateModal, setShowActivateModal] = useState(false);
+  const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string | undefined>(undefined);
+  
+  // Track if user has closed the initial paywall (determines free tier access)
+  const [hasClosedPaywall, setHasClosedPaywall] = useState(() => {
+    return !!localStorage.getItem('focusflow_paywall_closed');
   });
   
-  const handleCloseWelcome = useCallback(() => {
-    localStorage.setItem('focusflow_welcome_seen', 'true');
-    setShowWelcome(false);
+  // Check for pending checkout session on mount (user paid but didn't create account yet)
+  useEffect(() => {
+    const storedSessionId = localStorage.getItem('pending_checkout_session');
+    const storedEmail = localStorage.getItem('pending_checkout_email');
+    
+    if (storedSessionId && !user) {
+      // User has a pending subscription that needs to be linked
+      setPendingSessionId(storedSessionId);
+      setPendingEmail(storedEmail || undefined);
+      setShowActivateModal(true);
+      setShowPaywall(false);
+    }
+  }, [user]);
+  
+  // Show paywall immediately on app start for non-paid users (once per session or first visit)
+  useEffect(() => {
+    // Don't show during auth loading or if Firebase not configured
+    if (authLoading && isConfigured) return;
+    
+    // If user is paid, don't show paywall
+    if (isPaid) return;
+    
+    // If subscription is still loading for authenticated user, wait
+    if (user && subscriptionLoading) return;
+    
+    // Show paywall if user hasn't closed it yet this session
+    if (!hasClosedPaywall && isConfigured) {
+      setShowPaywall(true);
+    }
+  }, [authLoading, isPaid, user, subscriptionLoading, hasClosedPaywall, isConfigured]);
+  
+  const handleSelectPlan = useCallback((plan: 'free' | 'monthly' | 'yearly') => {
+    setShowPaywall(false);
+    setHasClosedPaywall(true);
+    localStorage.setItem('focusflow_paywall_closed', 'true');
+    
+    // If user selected a paid plan, they'll be redirected to Stripe
+    // The webhook will update their subscription status
+    if (plan === 'free') {
+      // User chose to continue with free tier
+      console.log('User selected free plan');
+    }
   }, []);
   
+  // Handle successful checkout for unauthenticated users
+  const handleCheckoutSuccess = useCallback((sessionId: string, customerEmail?: string) => {
+    // Store session info in localStorage (survives page refresh)
+    localStorage.setItem('pending_checkout_session', sessionId);
+    if (customerEmail) {
+      localStorage.setItem('pending_checkout_email', customerEmail);
+    }
+    
+    // Update state to show activation modal
+    setPendingSessionId(sessionId);
+    setPendingEmail(customerEmail);
+    setShowPaywall(false);
+    setShowActivateModal(true);
+  }, []);
+  
+  // Handle linking subscription after account creation
+  const handleLinkSubscription = useCallback(async (userId: string) => {
+    if (!pendingSessionId) {
+      throw new Error('No pending session to link');
+    }
+    
+    await linkSubscription(pendingSessionId, userId);
+    
+    // Clear pending session from localStorage
+    localStorage.removeItem('pending_checkout_session');
+    localStorage.removeItem('pending_checkout_email');
+    
+    // Refresh user data to get updated subscription
+    await refreshUserData();
+  }, [pendingSessionId, refreshUserData]);
+  
+  // Handle activation complete
+  const handleActivationComplete = useCallback(() => {
+    setShowActivateModal(false);
+    setPendingSessionId(null);
+    setPendingEmail(undefined);
+    setHasClosedPaywall(true);
+    localStorage.setItem('focusflow_paywall_closed', 'true');
+  }, []);
+  
+  // Show paywall when free user tries to use premium features
+  const handlePaywallNeeded = useCallback(() => {
+    if (!isPaid && isConfigured) {
+      setShowPaywall(true);
+    }
+  }, [isPaid, isConfigured]);
+  
+  const handleOpenLogin = useCallback(() => {
+    setShowLogin(true);
+  }, []);
+  
+  const handleCloseLogin = useCallback(() => {
+    setShowLogin(false);
+  }, []);
+  
+  
   // Initialize audio context on first user interaction
-  // Note: Browsers require a real user gesture (click/touch/keydown) for audio
-  // Hover sounds will work after the first click anywhere on the page
   const audioInitialized = useRef(false);
   useEffect(() => {
     const handleInteraction = async () => {
@@ -52,13 +160,11 @@ function App() {
         console.debug('Audio context initialization:', error);
       }
       
-      // Remove all listeners after initialization
       document.removeEventListener('click', handleInteraction, true);
       document.removeEventListener('touchstart', handleInteraction, true);
       document.removeEventListener('keydown', handleInteraction, true);
     };
     
-    // Use capture phase to ensure we catch the event before any stopPropagation
     document.addEventListener('click', handleInteraction, true);
     document.addEventListener('touchstart', handleInteraction, true);
     document.addEventListener('keydown', handleInteraction, true);
@@ -90,23 +196,69 @@ function App() {
   const handleDismissTimer = useCallback(() => {
     stopNotificationLoop();
     setTimerState('idle');
-    setTimerReset(true); // Trigger reset in TimerControls
+    setTimerReset(true);
   }, []);
   
   // Handle when timer reset is complete
   const handleTimerResetHandled = useCallback(() => {
     setTimerReset(false);
   }, []);
+
+  // Show loading screen while checking auth (only if Firebase is configured)
+  if (authLoading && isConfigured) {
+    return (
+      <div className="relative w-full h-screen overflow-hidden bg-cosmic-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl 
+                          bg-cosmic-950 mb-4
+                          shadow-lg shadow-nebula-purple/30 animate-pulse">
+            <svg className="w-10 h-10" viewBox="0 0 32 32" fill="none">
+              <defs>
+                <linearGradient id="loadingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#c471ed" />
+                  <stop offset="50%" stopColor="#12c2e9" />
+                  <stop offset="100%" stopColor="#00f5d4" />
+                </linearGradient>
+              </defs>
+              <circle cx="16" cy="16" r="10" fill="url(#loadingGradient)" opacity="0.9"/>
+              <circle cx="16" cy="16" r="7" fill="#0a0a1a" opacity="0.3"/>
+              <circle cx="16" cy="16" r="4" fill="url(#loadingGradient)" opacity="0.6"/>
+            </svg>
+          </div>
+          <p className="text-cosmic-400 text-sm">Loading Calm Down Space...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // In demo mode (Firebase not configured), give full access
+  const effectiveIsPaid = !isConfigured || isPaid;
   
   return (
     <div className="relative w-full h-screen overflow-hidden bg-cosmic-900">
       {/* Visual Canvas - Background */}
       <VisualCanvas modeId={modeId} loopDuration={loopDuration} />
       
+      {/* Demo Mode Banner - shown when Firebase is not configured */}
+      {!isConfigured && (
+        <div className="fixed top-0 left-0 right-0 z-[400] bg-gradient-to-r from-nebula-purple to-nebula-pink py-2 px-4 text-center">
+          <p className="text-white text-xs font-medium">
+            Demo Mode - Firebase not configured. All features unlocked. 
+            <a 
+              href="https://console.firebase.google.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline ml-2 hover:text-cosmic-200"
+            >
+              Set up Firebase
+            </a>
+          </p>
+        </div>
+      )}
+      
       {/* Mobile Message Overlay - visible only on small screens (< 768px) */}
       <div className="fixed inset-0 z-50 flex md:hidden items-center justify-center bg-cosmic-900/80 backdrop-blur-md">
         <div className="text-center px-8 py-10 max-w-sm">
-          {/* Desktop icon */}
           <div className="mb-6 flex justify-center">
             <svg 
               className="w-16 h-16 text-nebula-purple opacity-80" 
@@ -123,18 +275,15 @@ function App() {
             </svg>
           </div>
           
-          {/* Title */}
           <h2 className="text-xl font-display font-semibold text-cosmic-100 mb-3 tracking-wide">
             Desktop Experience Only
           </h2>
           
-          {/* Message */}
           <p className="text-cosmic-300 text-sm leading-relaxed mb-6">
             This visual meditation tool is designed for larger screens. 
             Please visit on a desktop or laptop for the best experience.
           </p>
           
-          {/* Decorative gradient line */}
           <div className="w-24 h-0.5 mx-auto bg-gradient-to-r from-nebula-purple via-nebula-cyan to-nebula-pink rounded-full opacity-60" />
         </div>
       </div>
@@ -150,7 +299,10 @@ function App() {
       
       {/* Sound Panel - Left Side (desktop only) */}
       <div className="hidden md:block">
-        <SoundPanel />
+        <SoundPanel 
+          isPaid={effectiveIsPaid}
+          onPaywallNeeded={handlePaywallNeeded}
+        />
       </div>
       
       {/* Visual Panel - Right Side (desktop only) */}
@@ -165,6 +317,8 @@ function App() {
           onTimerStateChange={handleTimerStateChange}
           timerReset={timerReset}
           onTimerResetHandled={handleTimerResetHandled}
+          isPaid={effectiveIsPaid}
+          onPaywallNeeded={handlePaywallNeeded}
         />
       </div>
       
@@ -173,56 +327,102 @@ function App() {
         <FullscreenControl />
       </div>
       
-      {/* Subtle branding (desktop only) */}
-      <div className="hidden md:block fixed bottom-4 left-4 z-40 opacity-30 hover:opacity-60 transition-opacity duration-500">
+      {/* User Account Button (desktop only) - only show if Firebase is configured */}
+      {isConfigured && user && (
+        <div className="hidden md:block fixed top-4 right-4 z-[500]">
+          <div className="flex items-center gap-3">
+            {/* Subscription badge - only for authenticated paid users */}
+            {isPaid && (
+              <span className="px-2 py-1 rounded-full bg-gradient-to-r from-nebula-purple to-nebula-pink
+                             text-[10px] font-bold uppercase tracking-wider text-white
+                             shadow-md shadow-nebula-purple/40">
+                Premium
+              </span>
+            )}
+            
+            {/* User avatar/button for authenticated users */}
+            <button
+              onClick={() => signOut()}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl
+                       bg-cosmic-800/40 backdrop-blur-sm border border-cosmic-600/20
+                       text-xs text-cosmic-300 font-display tracking-wider
+                       opacity-60 hover:opacity-100 hover:bg-cosmic-700/50 hover:text-cosmic-100
+                       transition-all duration-300"
+              title="Sign out"
+            >
+              {user.photoURL ? (
+                <img 
+                  src={user.photoURL} 
+                  alt="" 
+                  className="w-5 h-5 rounded-full"
+                />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-nebula-purple/50 flex items-center justify-center">
+                  <span className="text-[10px] text-white font-bold">
+                    {user.email?.[0]?.toUpperCase() || 'U'}
+                  </span>
+                </div>
+              )}
+              <span className="hidden lg:inline">Sign Out</span>
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Subtle branding & Terms (desktop only) */}
+      <div className="hidden md:flex fixed bottom-4 left-4 z-40 items-center gap-4 opacity-30 hover:opacity-60 transition-opacity duration-500">
         <p className="text-[10px] text-cosmic-400 font-display tracking-widest">
-          FOCUS FLOW by Nick Zaleski
+          CALM DOWN SPACE by Nick Zaleski
         </p>
+        <span className="text-cosmic-600">|</span>
+        <TermsModal />
       </div>
       
-      {/* Support & Contact (desktop only) */}
-      <div className="hidden md:flex fixed bottom-4 right-4 z-40 items-center gap-4">
-        {/* Email - plain text */}
-        <a
-          href="mailto:sidfedner27@gmail.com"
-          className="text-[11px] text-cosmic-500 hover:text-cosmic-300 
-                     transition-colors duration-300 opacity-60 hover:opacity-100"
-        >
-          sidfedner27@gmail.com
-        </a>
-        
-        {/* Instagram */}
-        <a
-          href="https://www.instagram.com/calmdownspace/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-cosmic-500 hover:text-[#E1306C] 
-                     transition-colors duration-300 opacity-60 hover:opacity-100"
-          title="@calmdownspace"
-        >
-          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-          </svg>
-        </a>
-        
-        {/* Coffee support */}
-        <a
-          href="https://buymeacoffee.com/nickzaleski"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                     bg-cosmic-800/40 backdrop-blur-sm border border-cosmic-600/20
-                     text-xs text-cosmic-300 font-display tracking-wider
-                     opacity-40 hover:opacity-90 hover:bg-cosmic-700/50 hover:text-cosmic-100 hover:border-cosmic-500/30
+      {/* Bottom right actions (desktop only) */}
+      <div className="hidden md:flex fixed bottom-4 right-4 z-40 items-center gap-3">
+        {/* Sign In button for unauthenticated users */}
+        {isConfigured && !user && (
+          <button
+            onClick={handleOpenLogin}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl
+                     bg-gradient-to-r from-nebula-purple/80 to-nebula-pink/80
+                     text-xs text-white font-display tracking-wider font-medium
+                     shadow-lg shadow-nebula-purple/30
+                     hover:shadow-nebula-purple/50 hover:scale-[1.02]
                      transition-all duration-300"
-        >
-          <span>☕</span>
-          <span>Support</span>
-        </a>
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span>Sign In</span>
+          </button>
+        )}
       </div>
       
-      {/* Welcome Popup - shown on first visit */}
-      {showWelcome && <WelcomePopup onClose={handleCloseWelcome} />}
+      {/* Login Modal - shown when user clicks sign in button */}
+      {showLogin && isConfigured && <LoginModal onClose={handleCloseLogin} />}
+      
+      {/* Paywall Modal - shown for free users on app start (only if Firebase is configured) */}
+      {!showLogin && !showActivateModal && showPaywall && isConfigured && (
+        <PaywallModal 
+          onSelectPlan={handleSelectPlan} 
+          userId={user?.uid}
+          userEmail={user?.email || undefined}
+          onCheckoutSuccess={handleCheckoutSuccess}
+        />
+      )}
+      
+      {/* Activate Subscription Modal - shown after payment for unauthenticated users */}
+      {showActivateModal && pendingSessionId && isConfigured && (
+        <ActivateSubscriptionModal
+          sessionId={pendingSessionId}
+          prefillEmail={pendingEmail}
+          onActivated={handleActivationComplete}
+          onLinkSubscription={handleLinkSubscription}
+        />
+      )}
+      
     </div>
   );
 }

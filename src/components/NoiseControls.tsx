@@ -2,16 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import { getNoiseGenerator, type NoiseType } from '../audio/NoiseGenerator';
 import { useHoverSound } from '../hooks/useHoverSound';
 
-const noiseTypes: { id: NoiseType; label: string; description: string }[] = [
-  { id: 'white', label: 'White', description: 'Bright, even frequencies' },
-  { id: 'pink', label: 'Pink', description: 'Balanced, natural sound' },
-  { id: 'brown', label: 'Brown', description: 'Deep, rumbling bass' },
+interface NoiseControlsProps {
+  isPaid: boolean;
+  onPaywallNeeded: () => void;
+}
+
+const noiseTypes: { id: NoiseType; label: string; description: string; premium: boolean }[] = [
+  { id: 'white', label: 'White', description: 'Bright, even frequencies', premium: true },
+  { id: 'pink', label: 'Pink', description: 'Balanced, natural sound', premium: true },
+  { id: 'brown', label: 'Brown', description: 'Deep, rumbling bass', premium: false },
 ];
 
 /**
  * UI component for controlling noise generation
  */
-export function NoiseControls() {
+export function NoiseControls({ isPaid, onPaywallNeeded }: NoiseControlsProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentType, setCurrentType] = useState<NoiseType>('brown');
   const [volume, setVolume] = useState(0.01); // Default 1%
@@ -35,6 +40,14 @@ export function NoiseControls() {
   
   // Change noise type
   const handleTypeChange = async (type: NoiseType) => {
+    const noiseConfig = noiseTypes.find(t => t.id === type);
+    
+    // If trying to select a premium noise type and user is not paid, show paywall
+    if (noiseConfig?.premium && !isPaid) {
+      onPaywallNeeded();
+      return;
+    }
+    
     setCurrentType(type);
     try {
       await noiseRef.current.setType(type);
@@ -60,25 +73,38 @@ export function NoiseControls() {
       
       {/* Noise Type Selector */}
       <div className="grid grid-cols-3 gap-2">
-        {noiseTypes.map((type) => (
-          <button
-            key={type.id}
-            onClick={() => handleTypeChange(type.id)}
-            {...hoverSound}
-            className={`
-              relative px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300
-              ${currentType === type.id
-                ? 'bg-gradient-to-r from-nebula-purple/30 to-nebula-blue/30 text-white border border-nebula-purple/50'
-                : 'bg-cosmic-700/30 text-cosmic-300 border border-transparent hover:bg-cosmic-600/40 hover:text-cosmic-100'
-              }
-            `}
-          >
-            {type.label}
-            {currentType === type.id && (
-              <span className="absolute -top-1 -right-1 w-2 h-2 bg-nebula-cyan rounded-full animate-pulse" />
-            )}
-          </button>
-        ))}
+        {noiseTypes.map((type) => {
+          const isLocked = type.premium && !isPaid;
+          return (
+            <button
+              key={type.id}
+              onClick={() => handleTypeChange(type.id)}
+              {...hoverSound}
+              className={`
+                relative px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300
+                ${currentType === type.id && !isLocked
+                  ? 'bg-gradient-to-r from-nebula-purple/30 to-nebula-blue/30 text-white border border-nebula-purple/50'
+                  : isLocked
+                  ? 'bg-cosmic-800/30 text-cosmic-500 border border-cosmic-700/30 cursor-pointer hover:border-nebula-purple/30'
+                  : 'bg-cosmic-700/30 text-cosmic-300 border border-transparent hover:bg-cosmic-600/40 hover:text-cosmic-100'
+                }
+              `}
+            >
+              <span className="flex items-center justify-center gap-1">
+                {isLocked && (
+                  <svg className="w-3 h-3 text-nebula-pink/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                )}
+                {type.label}
+              </span>
+              {currentType === type.id && !isLocked && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-nebula-cyan rounded-full animate-pulse" />
+              )}
+            </button>
+          );
+        })}
       </div>
       
       {/* Type Description */}

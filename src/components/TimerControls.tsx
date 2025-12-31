@@ -9,14 +9,20 @@ interface TimerControlsProps {
   onTimerStateChange: (state: TimerState, remainingSeconds: number) => void;
   externalReset?: boolean; // When true, reset timer to idle
   onResetHandled?: () => void; // Called after handling reset
+  isPaid?: boolean;
+  onPaywallNeeded?: () => void;
 }
 
-const PRESET_MINUTES = [10, 25, 60];
+const PRESET_MINUTES: { mins: number; premium: boolean }[] = [
+  { mins: 10, premium: true },
+  { mins: 25, premium: false },
+  { mins: 60, premium: true },
+];
 
 /**
  * Timer controls component with start/pause/stop functionality
  */
-export function TimerControls({ onTimerStateChange, externalReset, onResetHandled }: TimerControlsProps) {
+export function TimerControls({ onTimerStateChange, externalReset, onResetHandled, isPaid = true, onPaywallNeeded }: TimerControlsProps) {
   const [duration, setDuration] = useState(25); // minutes
   const [remainingSeconds, setRemainingSeconds] = useState(25 * 60);
   const [timerState, setTimerState] = useState<TimerState>('idle');
@@ -66,13 +72,19 @@ export function TimerControls({ onTimerStateChange, externalReset, onResetHandle
     };
   }, [timerState]);
   
-  // Handle duration change from slider
-  const handleDurationChange = useCallback((newDuration: number) => {
+  // Handle duration change from slider or preset
+  const handleDurationChange = useCallback((newDuration: number, isPremium: boolean = false) => {
+    // If trying to select a premium duration and user is not paid, show paywall
+    if (isPremium && !isPaid) {
+      onPaywallNeeded?.();
+      return;
+    }
+    
     setDuration(newDuration);
     if (timerState === 'idle') {
       setRemainingSeconds(newDuration * 60);
     }
-  }, [timerState]);
+  }, [timerState, isPaid, onPaywallNeeded]);
   
   // Start timer
   const startTimer = useCallback(() => {
@@ -159,48 +171,93 @@ export function TimerControls({ onTimerStateChange, externalReset, onResetHandle
         <>
           {/* Quick preset buttons */}
           <div className="grid grid-cols-3 gap-2">
-            {PRESET_MINUTES.map((mins) => (
-              <button
-                key={mins}
-                onClick={() => handleDurationChange(mins)}
-                {...hoverSound}
-                className={`
-                  px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300
-                  ${duration === mins
-                    ? 'bg-gradient-to-r from-nebula-purple/30 to-nebula-blue/30 text-white border border-nebula-purple/50'
-                    : 'bg-cosmic-700/30 text-cosmic-300 border border-transparent hover:bg-cosmic-600/40 hover:text-cosmic-100'
-                  }
-                `}
-              >
-                {mins}m
-              </button>
-            ))}
+            {PRESET_MINUTES.map((preset) => {
+              const isLocked = preset.premium && !isPaid;
+              return (
+                <button
+                  key={preset.mins}
+                  onClick={() => handleDurationChange(preset.mins, preset.premium)}
+                  {...hoverSound}
+                  className={`
+                    px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300
+                    ${duration === preset.mins && !isLocked
+                      ? 'bg-gradient-to-r from-nebula-purple/30 to-nebula-blue/30 text-white border border-nebula-purple/50'
+                      : isLocked
+                      ? 'bg-cosmic-800/30 text-cosmic-500 border border-cosmic-700/30 cursor-pointer hover:border-nebula-purple/30'
+                      : 'bg-cosmic-700/30 text-cosmic-300 border border-transparent hover:bg-cosmic-600/40 hover:text-cosmic-100'
+                    }
+                  `}
+                >
+                  <span className="flex items-center justify-center gap-1">
+                    {isLocked && (
+                      <svg className="w-3 h-3 text-nebula-pink/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    )}
+                    {preset.mins}m
+                  </span>
+                </button>
+              );
+            })}
           </div>
           
-          {/* Duration slider */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-cosmic-400">Duration</span>
-              <span className="text-sm text-nebula-cyan font-mono font-medium">
-                {duration} min
-              </span>
+          {/* Duration slider - only for paid users */}
+          {isPaid ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-cosmic-400">Duration</span>
+                <span className="text-sm text-nebula-cyan font-mono font-medium">
+                  {duration} min
+                </span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="60"
+                step="1"
+                value={duration}
+                onChange={(e) => handleDurationChange(parseInt(e.target.value), false)}
+                {...hoverSound}
+                className="w-full"
+              />
+              <div className="flex justify-between text-[10px] text-cosmic-500">
+                <span>1m</span>
+                <span>30m</span>
+                <span>60m</span>
+              </div>
             </div>
-            <input
-              type="range"
-              min="1"
-              max="60"
-              step="1"
-              value={duration}
-              onChange={(e) => handleDurationChange(parseInt(e.target.value))}
-              {...hoverSound}
-              className="w-full"
-            />
-            <div className="flex justify-between text-[10px] text-cosmic-500">
-              <span>1m</span>
-              <span>30m</span>
-              <span>60m</span>
+          ) : (
+            <div 
+              className="space-y-2 opacity-50 cursor-pointer"
+              onClick={() => onPaywallNeeded?.()}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-cosmic-400 flex items-center gap-1">
+                  <svg className="w-3 h-3 text-nebula-pink/70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Custom Duration
+                </span>
+                <span className="text-xs text-nebula-pink/70">Premium</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="60"
+                step="1"
+                value={25}
+                disabled
+                className="w-full cursor-pointer"
+              />
+              <div className="flex justify-between text-[10px] text-cosmic-500">
+                <span>1m</span>
+                <span>30m</span>
+                <span>60m</span>
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
       

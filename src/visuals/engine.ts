@@ -1,6 +1,11 @@
 import { lerp, map, cycle, randomColor } from '../utils';
 import { GradientFlow } from './modes/GradientFlow';
 import { BreathingBlob } from './modes/BreathingBlob';
+import { AuroraDrift } from './modes/AuroraDrift';
+import { LiquidSilk } from './modes/LiquidSilk';
+import { NebulaClouds } from './modes/NebulaClouds';
+import { ZenRipples } from './modes/ZenRipples';
+import { FireflyField } from './modes/FireflyField';
 
 /**
  * Visual mode render function signature
@@ -35,6 +40,12 @@ export interface VisualMode {
  */
 export const visualModeRegistry: VisualMode[] = [
   {
+    id: 'nebula-clouds',
+    name: 'Nebula Clouds',
+    description: 'Soft billowing cosmic clouds that slowly morph and drift',
+    render: NebulaClouds,
+  },
+  {
     id: 'gradient-flow',
     name: 'Gradient Flow',
     description: 'Slow animated multi-stop gradient',
@@ -45,6 +56,30 @@ export const visualModeRegistry: VisualMode[] = [
     name: 'Breathing Blob',
     description: 'Radial gradient with sinusoidal breathing and hue shift',
     render: BreathingBlob,
+  },
+  {
+    id: 'aurora-drift',
+    name: 'Aurora Drift',
+    description: 'Ethereal northern lights ribbons undulating across the sky',
+    render: AuroraDrift,
+  },
+  {
+    id: 'liquid-silk',
+    name: 'Liquid Silk',
+    description: 'Ultra-smooth flowing fabric waves with iridescent sheen',
+    render: LiquidSilk,
+  },
+  {
+    id: 'zen-ripples',
+    name: 'Zen Ripples',
+    description: 'Concentric circles creating calming interference patterns',
+    render: ZenRipples,
+  },
+  {
+    id: 'firefly-field',
+    name: 'Firefly Field',
+    description: 'Thousands of soft glowing particles drifting in 3D space',
+    render: FireflyField,
   },
 ];
 
