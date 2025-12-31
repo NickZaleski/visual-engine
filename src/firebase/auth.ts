@@ -1,7 +1,8 @@
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
@@ -50,13 +51,24 @@ export async function signUpWithEmail(
 }
 
 /**
- * Sign in with Google popup
+ * Sign in with Google redirect (opens in new tab/same tab redirect)
  */
-export async function signInWithGoogle(): Promise<UserCredential> {
+export async function signInWithGoogle(): Promise<void> {
   if (!isFirebaseConfigured || !auth) {
     throw new Error('Firebase is not configured');
   }
-  return signInWithPopup(auth, googleProvider);
+  return signInWithRedirect(auth, googleProvider);
+}
+
+/**
+ * Get the result of a Google redirect sign-in
+ * Call this on app initialization to check if user is returning from a redirect
+ */
+export async function getGoogleRedirectResult(): Promise<UserCredential | null> {
+  if (!isFirebaseConfigured || !auth) {
+    return null;
+  }
+  return getRedirectResult(auth);
 }
 
 /**

@@ -11,7 +11,8 @@
  * 4. Run: node server/index.js
  */
 
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
@@ -58,6 +59,24 @@ const PRICES = {
   monthly: process.env.STRIPE_PRICE_MONTHLY || 'price_monthly_499',
   yearly: process.env.STRIPE_PRICE_YEARLY || 'price_yearly_4999',
 };
+
+// Log configured prices on startup (for debugging)
+console.log('\n📋 Configured Stripe Price IDs:');
+console.log(`   Monthly: ${PRICES.monthly}`);
+console.log(`   Yearly: ${PRICES.yearly}`);
+
+// Validate that these are Price IDs, not Product IDs
+if (PRICES.monthly.startsWith('prod_') || PRICES.yearly.startsWith('prod_')) {
+  console.error('\n   ❌ ERROR: You are using PRODUCT IDs instead of PRICE IDs!');
+  console.error('   Product IDs start with "prod_", but you need Price IDs that start with "price_"');
+  console.error('   Go to Stripe Dashboard > Products > Your Product > Pricing section');
+  console.error('   Copy the Price ID (not the Product ID)\n');
+} else if (PRICES.monthly === 'price_monthly_499' || PRICES.yearly === 'price_yearly_4999') {
+  console.warn('   ⚠️  Using default placeholder values! Make sure to set STRIPE_PRICE_MONTHLY and STRIPE_PRICE_YEARLY in your .env file');
+} else if (!PRICES.monthly.startsWith('price_') || !PRICES.yearly.startsWith('price_')) {
+  console.warn('   ⚠️  Price IDs should start with "price_". Please verify these are correct Price IDs from Stripe.');
+}
+console.log('');
 
 /**
  * Helper: Update user subscription in Firestore
@@ -123,10 +142,36 @@ app.post('/create-checkout-session', async (req, res) => {
   try {
     const { priceId, successUrl, cancelUrl, userId, userEmail } = req.body;
     
+    // Debug logging
+    console.log('\n🔍 Checkout Session Request:');
+    console.log('   Received priceId:', priceId);
+    console.log('   Configured prices:', PRICES);
+    console.log('   Price ID type:', priceId?.startsWith('prod_') ? 'PRODUCT ID ❌' : priceId?.startsWith('price_') ? 'PRICE ID ✅' : 'UNKNOWN');
+    
     // Validate price ID
     if (!priceId || !Object.values(PRICES).includes(priceId)) {
-      return res.status(400).json({ error: 'Invalid price ID' });
+      const isProductId = priceId?.startsWith('prod_');
+      const configuredAreProductIds = Object.values(PRICES).some(p => p.startsWith('prod_'));
+      
+      console.error('   ❌ Validation failed!');
+      console.error('   Received:', priceId);
+      console.error('   Expected one of:', Object.values(PRICES));
+      
+      return res.status(400).json({ 
+        error: 'Invalid price ID',
+        message: `Price ID "${priceId}" is not configured. Valid price IDs are: ${Object.values(PRICES).join(', ')}`,
+        received: priceId,
+        configuredPrices: PRICES,
+        hint: configuredAreProductIds 
+          ? '❌ You are using PRODUCT IDs (prod_...) instead of PRICE IDs (price_...). Go to Stripe Dashboard > Products > Your Product > Pricing section and copy the Price ID.'
+          : priceId?.startsWith('prod_')
+          ? '❌ You sent a PRODUCT ID (prod_...) but need a PRICE ID (price_...). Check your frontend configuration.'
+          : 'Make sure STRIPE_PRICE_MONTHLY and STRIPE_PRICE_YEARLY are set correctly in your .env file and match what frontend is sending',
+        detectedIssue: isProductId || configuredAreProductIds ? 'Using Product ID instead of Price ID' : 'Price ID mismatch between frontend and backend'
+      });
     }
+    
+    console.log('   ✅ Price ID validated successfully');
     
     // Build checkout session options
     const sessionOptions = {
@@ -457,11 +502,154 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   res.json({ received: true });
 });
 
+/**
+ * Create a Subscription with embedded Payment Element
+ * Returns clientSecret for Stripe Elements
+ * POST /create-subscription
+ */
+app.post('/create-subscription', async (req, res) => {
+  try {
+    const { priceId, email, userId } = req.body;
+    
+    console.log('\n🔍 Create Subscription Request:');
+    console.log('   Price ID:', priceId);
+    console.log('   Email:', email);
+    console.log('   User ID:', userId);
+    
+    // Validate price ID
+    if (!priceId || !Object.values(PRICES).includes(priceId)) {
+      console.error('   ❌ Invalid price ID');
+      return res.status(400).json({ 
+        error: 'Invalid price ID',
+        received: priceId,
+        configuredPrices: PRICES
+      });
+    }
+    
+    // Create or get customer
+    let customer;
+    
+    // Check if customer already exists by email
+    if (email) {
+      const existingCustomers = await stripe.customers.list({
+        email: email,
+        limit: 1
+      });
+      
+      if (existingCustomers.data.length > 0) {
+        customer = existingCustomers.data[0];
+        console.log('   Found existing customer:', customer.id);
+      }
+    }
+    
+    // Create new customer if not found
+    if (!customer) {
+      customer = await stripe.customers.create({
+        email: email,
+        metadata: {
+          firebaseUserId: userId || ''
+        }
+      });
+      console.log('   Created new customer:', customer.id);
+    }
+    
+    // Create the subscription with payment_behavior: 'default_incomplete'
+    // This creates a subscription that waits for payment
+    // Allow multiple payment methods - Stripe will show available ones based on customer location
+    const subscription = await stripe.subscriptions.create({
+      customer: customer.id,
+      items: [{ price: priceId }],
+      payment_behavior: 'default_incomplete',
+      payment_settings: {
+        save_default_payment_method: 'on_subscription',
+        // Allow all payment methods configured in Stripe Dashboard
+        // Remove payment_method_types to let Stripe auto-detect based on customer location
+      },
+      expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
+      metadata: {
+        firebaseUserId: userId || ''
+      }
+    });
+    
+    const paymentIntent = subscription.latest_invoice.payment_intent;
+    
+    console.log('   ✅ Subscription created:', subscription.id);
+    console.log('   Payment Intent:', paymentIntent.id);
+    
+    res.json({
+      subscriptionId: subscription.id,
+      clientSecret: paymentIntent.client_secret,
+      customerId: customer.id
+    });
+    
+  } catch (error) {
+    console.error('Error creating subscription:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Confirm subscription payment was successful
+ * POST /confirm-subscription
+ */
+app.post('/confirm-subscription', async (req, res) => {
+  try {
+    const { subscriptionId, userId } = req.body;
+    
+    if (!subscriptionId) {
+      return res.status(400).json({ error: 'Subscription ID required' });
+    }
+    
+    // Retrieve subscription to verify status
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    
+    if (subscription.status === 'active' || subscription.status === 'trialing') {
+      console.log('✅ Subscription confirmed:', subscriptionId);
+      
+      // Update Firebase if configured
+      if (db && userId) {
+        const priceId = subscription.items.data[0]?.price?.id;
+        await updateUserSubscription(userId, {
+          status: 'active',
+          plan: getPlanFromPriceId(priceId),
+          stripeCustomerId: subscription.customer,
+          stripeSubscriptionId: subscription.id,
+          currentPeriodEnd: admin.firestore.Timestamp.fromMillis(
+            subscription.current_period_end * 1000
+          ),
+          cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        status: subscription.status,
+        plan: getPlanFromPriceId(subscription.items.data[0]?.price?.id)
+      });
+    } else {
+      res.json({ 
+        success: false, 
+        status: subscription.status,
+        message: 'Subscription is not active yet'
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error confirming subscription:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok',
     firebase: db ? 'connected' : 'not configured',
+    prices: {
+      monthly: PRICES.monthly,
+      yearly: PRICES.yearly,
+      usingDefaults: PRICES.monthly === 'price_monthly_499' || PRICES.yearly === 'price_yearly_4999'
+    }
   });
 });
 

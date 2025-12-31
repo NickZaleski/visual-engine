@@ -12,6 +12,7 @@ import {
   signInWithEmail,
   signUpWithEmail,
   signInWithGoogle,
+  getGoogleRedirectResult,
   signOut as firebaseSignOut,
   resetPassword,
 } from '../firebase/auth';
@@ -88,6 +89,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Handle Google redirect result on app load
+  useEffect(() => {
+    if (!isFirebaseConfigured || !auth) return;
+
+    // Check if user is returning from a Google redirect
+    getGoogleRedirectResult()
+      .then((result) => {
+        if (result?.user) {
+          // User successfully signed in via redirect
+          console.log('Google redirect sign-in successful');
+        }
+      })
+      .catch((err) => {
+        console.error('Error handling Google redirect:', err);
+        setError('Google sign in failed');
+      });
+  }, []);
+
   // Listen to auth state changes
   useEffect(() => {
     // If Firebase isn't configured, don't try to listen to auth state
@@ -154,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  // Sign in with Google
+  // Sign in with Google (redirect - opens in same tab, redirects to Google then back)
   const signInGoogle = useCallback(async () => {
     if (!isFirebaseConfigured) {
       setError('Firebase is not configured');
@@ -164,14 +183,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     setLoading(true);
     try {
+      // This will redirect to Google auth page
       await signInWithGoogle();
+      // Note: Code after this won't execute immediately as the page redirects
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Google sign in failed';
       setError(errorMessage);
-      throw err;
-    } finally {
       setLoading(false);
+      throw err;
     }
+    // Don't set loading to false here - page will redirect
   }, []);
 
   // Sign out
