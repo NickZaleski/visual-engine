@@ -22,7 +22,7 @@ export function StripePaymentForm({
   onSuccess, 
   onError,
   subscriptionId,
-  userId,
+  userId: _userId,
   defaultEmail = ''
 }: StripePaymentFormProps) {
   const stripe = useStripe();
