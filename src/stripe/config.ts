@@ -133,3 +133,28 @@ export async function getSessionEmail(sessionId: string): Promise<string | undef
   return undefined;
 }
 
+/**
+ * Create a Stripe Customer Portal session
+ * Allows customers to manage their subscription (cancel, update payment method, etc.)
+ */
+export async function createPortalSession(customerId: string): Promise<string> {
+  const response = await fetch(getEndpointUrl('createPortalSession'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ 
+      customerId, 
+      returnUrl: window.location.origin 
+    }),
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to create portal session');
+  }
+  
+  const data = await response.json();
+  return data.url;
+}
+

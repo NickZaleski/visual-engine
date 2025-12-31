@@ -17,21 +17,18 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // Initialize Stripe with secret key from Firebase config
-// Set this with: firebase functions:config:set stripe.secret_key="sk_live_..."
-const stripe = require("stripe")(
-  process.env.STRIPE_SECRET_KEY || 
-  functions.config().stripe?.secret_key
-);
+// Set with: firebase functions:config:set stripe.secret_key="sk_live_..."
+const stripe = require("stripe")(functions.config().stripe?.secret_key);
+
+// Helper function for Stripe calls
+function getStripe() {
+  return stripe;
+}
 
 // Price IDs from Stripe Dashboard
-// Set these with: firebase functions:config:set stripe.price_monthly="price_..." stripe.price_yearly="price_..."
 const PRICES = {
-  monthly: process.env.STRIPE_PRICE_MONTHLY || 
-           functions.config().stripe?.price_monthly || 
-           "price_1SkOx6GLI9gGYuFfKpivFSc1",
-  yearly: process.env.STRIPE_PRICE_YEARLY || 
-          functions.config().stripe?.price_yearly || 
-          "price_1SkOxfGLI9gGYuFfUkxLgHsK",
+  monthly: "price_1SkOx6GLI9gGYuFfKpivFSc1",
+  yearly: "price_1SkOxfGLI9gGYuFfUkxLgHsK",
 };
 
 /**
@@ -134,7 +131,7 @@ exports.createCheckoutSession = functions.https.onRequest((req, res) => {
       }
 
       // Create Stripe Checkout Session
-      const session = await stripe.checkout.sessions.create(sessionOptions);
+      const session = await getStripe().checkout.sessions.create(sessionOptions);
 
       console.log("✅ Checkout session created:", session.id);
 
@@ -166,7 +163,7 @@ exports.createPortalSession = functions.https.onRequest((req, res) => {
         return res.status(400).json({ error: "Customer ID required" });
       }
 
-      const session = await stripe.billingPortal.sessions.create({
+      const session = await getStripe().billingPortal.sessions.create({
         customer: customerId,
         return_url: returnUrl || req.headers.origin,
       });
@@ -196,7 +193,7 @@ exports.sessionStatus = functions.https.onRequest((req, res) => {
         return res.status(400).json({ error: "Session ID required" });
       }
 
-      const session = await stripe.checkout.sessions.retrieve(session_id);
+      const session = await getStripe().checkout.sessions.retrieve(session_id);
 
       res.json({
         status: session.payment_status,
@@ -228,7 +225,7 @@ exports.linkSubscription = functions.https.onRequest((req, res) => {
       }
 
       // Retrieve the checkout session from Stripe
-      const session = await stripe.checkout.sessions.retrieve(sessionId);
+      const session = await getStripe().checkout.sessions.retrieve(sessionId);
 
       // Validate payment was completed
       if (session.payment_status !== "paid") {
@@ -250,7 +247,7 @@ exports.linkSubscription = functions.https.onRequest((req, res) => {
         return res.status(400).json({ error: "No subscription found for this session" });
       }
 
-      const subscription = await stripe.subscriptions.retrieve(session.subscription);
+      const subscription = await getStripe().subscriptions.retrieve(session.subscription);
       const priceId = subscription.items.data[0]?.price?.id;
 
       // Update Firebase user with subscription data
@@ -266,12 +263,12 @@ exports.linkSubscription = functions.https.onRequest((req, res) => {
       });
 
       // Update Stripe customer metadata with Firebase user ID
-      await stripe.customers.update(session.customer, {
+      await getStripe().customers.update(session.customer, {
         metadata: { firebaseUserId: userId },
       });
 
       // Also update the subscription metadata
-      await stripe.subscriptions.update(session.subscription, {
+      await getStripe().subscriptions.update(session.subscription, {
         metadata: { firebaseUserId: userId },
       });
 
@@ -298,7 +295,7 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
 
   try {
     if (endpointSecret) {
-      event = stripe.webhooks.constructEvent(req.rawBody, sig, endpointSecret);
+      event = getStripe().webhooks.constructEvent(req.rawBody, sig, endpointSecret);
     } else {
       event = req.body;
       console.warn("⚠️ Webhook signature verification skipped (no secret configured)");
@@ -317,7 +314,7 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
       const firebaseUserId = session.metadata?.firebaseUserId;
 
       if (firebaseUserId && session.subscription) {
-        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+        const subscription = await getStripe().subscriptions.retrieve(session.subscription);
         const priceId = subscription.items.data[0]?.price?.id;
 
         await updateUserSubscription(firebaseUserId, {
@@ -399,6 +396,142 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
   }
 
   res.json({ received: true });
+});
+
+/**
+ * Create a Subscription with Payment Element
+ * POST /createSubscription
+ * Returns clientSecret for embedded payment form
+ */
+exports.createSubscription = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    try {
+      const { priceId, email, userId } = req.body;
+
+      console.log("🔍 Create Subscription Request:");
+      console.log("   Price ID:", priceId);
+      console.log("   Email:", email);
+      console.log("   User ID:", userId);
+
+      // Validate price ID
+      if (!priceId || !Object.values(PRICES).includes(priceId)) {
+        return res.status(400).json({
+          error: "Invalid price ID",
+          received: priceId,
+          configuredPrices: PRICES,
+        });
+      }
+
+      // Create or get customer
+      let customer;
+
+      // Check if customer already exists by email
+      if (email) {
+        const existingCustomers = await getStripe().customers.list({
+          email: email,
+          limit: 1,
+        });
+
+        if (existingCustomers.data.length > 0) {
+          customer = existingCustomers.data[0];
+          console.log("   Found existing customer:", customer.id);
+        }
+      }
+
+      // Create new customer if not found
+      if (!customer) {
+        customer = await getStripe().customers.create({
+          email: email,
+          metadata: {
+            firebaseUserId: userId || "",
+          },
+        });
+        console.log("   Created new customer:", customer.id);
+      }
+
+      // Create the subscription with payment_behavior: 'default_incomplete'
+      const subscription = await getStripe().subscriptions.create({
+        customer: customer.id,
+        items: [{ price: priceId }],
+        payment_behavior: "default_incomplete",
+        payment_settings: {
+          save_default_payment_method: "on_subscription",
+        },
+        expand: ["latest_invoice.payment_intent"],
+        metadata: {
+          firebaseUserId: userId || "",
+        },
+      });
+
+      const paymentIntent = subscription.latest_invoice.payment_intent;
+
+      console.log("   ✅ Subscription created:", subscription.id);
+      console.log("   Payment Intent:", paymentIntent.id);
+
+      res.json({
+        subscriptionId: subscription.id,
+        clientSecret: paymentIntent.client_secret,
+        customerId: customer.id,
+      });
+    } catch (error) {
+      console.error("Error creating subscription:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+});
+
+/**
+ * Confirm a Subscription payment
+ * POST /confirmSubscription
+ */
+exports.confirmSubscription = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    try {
+      const { subscriptionId, userId } = req.body;
+
+      if (!subscriptionId) {
+        return res.status(400).json({ error: "Subscription ID required" });
+      }
+
+      const subscription = await getStripe().subscriptions.retrieve(subscriptionId);
+
+      if (subscription.status === "active" || subscription.status === "trialing") {
+        // Update Firebase user if userId provided
+        if (userId) {
+          const priceId = subscription.items.data[0]?.price?.id;
+          await updateUserSubscription(userId, {
+            status: "active",
+            plan: getPlanFromPriceId(priceId),
+            stripeCustomerId: subscription.customer,
+            stripeSubscriptionId: subscription.id,
+            currentPeriodEnd: admin.firestore.Timestamp.fromMillis(
+              subscription.current_period_end * 1000
+            ),
+            cancelAtPeriodEnd: subscription.cancel_at_period_end,
+          });
+        }
+
+        res.json({ success: true, status: subscription.status });
+      } else {
+        res.status(400).json({
+          success: false,
+          status: subscription.status,
+          message: `Subscription status is ${subscription.status}`,
+        });
+      }
+    } catch (error) {
+      console.error("Error confirming subscription:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 });
 
 /**

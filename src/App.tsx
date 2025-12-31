@@ -8,6 +8,7 @@ import { PaywallModal } from './components/PaywallModal';
 import { LoginModal } from './components/LoginModal';
 import { ActivateSubscriptionModal } from './components/ActivateSubscriptionModal';
 import { TermsModal } from './components/TermsModal';
+import { ProfileDropdown } from './components/ProfileDropdown';
 import { setBlobColor } from './visuals/blobColorState';
 import { setGradientColor } from './visuals/gradientColorState';
 import { stopNotificationLoop } from './audio/NotificationSound';
@@ -22,7 +23,7 @@ import type { TimerState } from './components/TimerControls';
  * Combines the visual canvas with floating control panel
  */
 function App() {
-  const { user, loading: authLoading, signOut, isConfigured, refreshUserData } = useAuth();
+  const { user, subscription, loading: authLoading, signOut, isConfigured, refreshUserData } = useAuth();
   const { isPaid, isLoading: subscriptionLoading } = useSubscription();
   
   const [modeId, setModeId] = useState('nebula-clouds');
@@ -39,6 +40,7 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [showPaywall, setShowPaywall] = useState(false);
   const [showActivateModal, setShowActivateModal] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | undefined>(undefined);
   
@@ -144,6 +146,14 @@ function App() {
   
   const handleCloseLogin = useCallback(() => {
     setShowLogin(false);
+  }, []);
+  
+  const handleOpenAbout = useCallback(() => {
+    setShowAbout(true);
+  }, []);
+  
+  const handleCloseAbout = useCallback(() => {
+    setShowAbout(false);
   }, []);
   
   
@@ -327,45 +337,16 @@ function App() {
         <FullscreenControl />
       </div>
       
-      {/* User Account Button (desktop only) - only show if Firebase is configured */}
+      {/* Profile Dropdown (desktop only) - only show if Firebase is configured and user is signed in */}
       {isConfigured && user && (
         <div className="hidden md:block fixed top-4 right-4 z-[500]">
-          <div className="flex items-center gap-3">
-            {/* Subscription badge - only for authenticated paid users */}
-            {isPaid && (
-              <span className="px-2 py-1 rounded-full bg-gradient-to-r from-nebula-purple to-nebula-pink
-                             text-[10px] font-bold uppercase tracking-wider text-white
-                             shadow-md shadow-nebula-purple/40">
-                Premium
-              </span>
-            )}
-            
-            {/* User avatar/button for authenticated users */}
-            <button
-              onClick={() => signOut()}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl
-                       bg-cosmic-800/40 backdrop-blur-sm border border-cosmic-600/20
-                       text-xs text-cosmic-300 font-display tracking-wider
-                       opacity-60 hover:opacity-100 hover:bg-cosmic-700/50 hover:text-cosmic-100
-                       transition-all duration-300"
-              title="Sign out"
-            >
-              {user.photoURL ? (
-                <img 
-                  src={user.photoURL} 
-                  alt="" 
-                  className="w-5 h-5 rounded-full"
-                />
-              ) : (
-                <div className="w-5 h-5 rounded-full bg-nebula-purple/50 flex items-center justify-center">
-                  <span className="text-[10px] text-white font-bold">
-                    {user.email?.[0]?.toUpperCase() || 'U'}
-                  </span>
-                </div>
-              )}
-              <span className="hidden lg:inline">Sign Out</span>
-            </button>
-          </div>
+          <ProfileDropdown
+            user={user}
+            subscription={subscription}
+            isPaid={isPaid}
+            onSignOut={signOut}
+            onOpenAbout={handleOpenAbout}
+          />
         </div>
       )}
       
@@ -421,6 +402,66 @@ function App() {
           onActivated={handleActivationComplete}
           onLinkSubscription={handleLinkSubscription}
         />
+      )}
+      
+      {/* About Modal - controlled from profile dropdown */}
+      {showAbout && (
+        <div 
+          className="fixed inset-0 z-[600] flex items-center justify-center bg-cosmic-900/80 backdrop-blur-sm"
+          onClick={handleCloseAbout}
+        >
+          <div 
+            className="relative w-full max-w-md mx-4 glass rounded-2xl overflow-hidden shadow-2xl shadow-cosmic-900/50"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={handleCloseAbout}
+              className="absolute top-4 right-4 w-8 h-8 rounded-full bg-cosmic-800/50 
+                         flex items-center justify-center text-cosmic-400 hover:text-white 
+                         hover:bg-cosmic-700/50 transition-all duration-200 z-10"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4">
+              <h2 className="text-xl font-display font-bold text-white tracking-wide">
+                About Calm Down Space
+              </h2>
+              <p className="mt-2 text-sm text-cosmic-300 leading-relaxed">
+                A visual meditation tool to help you focus, relax, and enter a flow state.
+              </p>
+            </div>
+
+            {/* Spotify Section */}
+            <div className="px-6 pb-4">
+              <h3 className="text-xs font-display text-cosmic-400 uppercase tracking-widest mb-3">
+                Listen on Spotify
+              </h3>
+              <div className="rounded-xl overflow-hidden">
+                <iframe 
+                  src="https://open.spotify.com/embed/artist/6dLjH4CwfSpjjLTa2xsIFv?utm_source=generator&theme=0" 
+                  width="100%" 
+                  height="152" 
+                  frameBorder="0" 
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
+                  loading="lazy"
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-cosmic-600/10 bg-cosmic-800/20">
+              <p className="text-xs text-cosmic-500 text-center">
+                Made with ♥ by Nick Zaleski
+              </p>
+            </div>
+          </div>
+        </div>
       )}
       
     </div>
