@@ -31,27 +31,8 @@ export const STRIPE_PRICES = {
 const FIREBASE_REGION = 'us-central1';
 const FIREBASE_PROJECT = 'calm-down-space';
 
-// Your backend server URL for creating checkout sessions
-// Uses Firebase Cloud Functions in production, localhost for development
-const getApiUrl = () => {
-  // If explicitly set in environment, use that
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-  
-  // Check if running on localhost (browser check, not build-time)
-  const isLocalhost = typeof window !== 'undefined' && 
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  
-  if (isLocalhost) {
-    return 'http://localhost:4242';
-  }
-  
-  // Production: use Firebase Cloud Functions
-  return `https://${FIREBASE_REGION}-${FIREBASE_PROJECT}.cloudfunctions.net`;
-};
-
-export const API_URL = getApiUrl();
+// Firebase Cloud Functions URL for Stripe API
+export const API_URL = `https://${FIREBASE_REGION}-${FIREBASE_PROJECT}.cloudfunctions.net`;
 
 // Firebase Functions endpoints mapping
 // Maps local server endpoints to Firebase Functions names
