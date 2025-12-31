@@ -3,6 +3,7 @@ import { visualModeRegistry } from '../visuals/engine';
 import { NoiseControls } from './NoiseControls';
 import { TimerControls, type TimerState } from './TimerControls';
 import { useHoverSound } from '../hooks/useHoverSound';
+import { useSubscription } from '../hooks/useSubscription';
 
 interface ControlsPanelProps {
   modeId: string;
@@ -12,6 +13,7 @@ interface ControlsPanelProps {
   blobColor: string;
   onBlobColorChange: (color: string) => void;
   onTimerStateChange: (state: TimerState, remainingSeconds: number) => void;
+  onPaywallNeeded?: () => void;
 }
 
 // Preset colors for the blob
@@ -37,10 +39,16 @@ export function ControlsPanel({
   blobColor,
   onBlobColorChange,
   onTimerStateChange,
+  onPaywallNeeded,
 }: ControlsPanelProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const hoverSound = useHoverSound();
+  const { isPaid } = useSubscription();
+  
+  const handlePaywallNeeded = useCallback(() => {
+    onPaywallNeeded?.();
+  }, [onPaywallNeeded]);
   
   // Toggle fullscreen
   const toggleFullscreen = useCallback(async () => {
@@ -261,7 +269,7 @@ export function ControlsPanel({
           
           {/* Noise Controls */}
           <section>
-            <NoiseControls />
+            <NoiseControls isPaid={isPaid} onPaywallNeeded={handlePaywallNeeded} />
           </section>
           
           {/* Divider */}

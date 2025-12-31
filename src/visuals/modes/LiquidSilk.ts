@@ -149,7 +149,7 @@ function drawSilkHighlight(
   ctx: CanvasRenderingContext2D,
   time: number,
   w: number,
-  h: number,
+  _h: number,
   baseY: number,
   waveHeight: number,
   index: number,

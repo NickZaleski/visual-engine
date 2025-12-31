@@ -12,18 +12,6 @@ function continuousSin(time: number, cycleDuration: number, phase: number = 0): 
 }
 
 /**
- * Attempt at smooth noise-like value using layered sine waves
- */
-function smoothNoise(x: number, y: number, time: number): number {
-  const t = time * 0.1;
-  return (
-    Math.sin(x * 0.5 + t) * 0.5 +
-    Math.sin(y * 0.3 + t * 1.3) * 0.3 +
-    Math.sin((x + y) * 0.4 + t * 0.7) * 0.2
-  );
-}
-
-/**
  * AuroraDrift - Ethereal northern lights ribbons undulating across the sky
  * Creates a deeply relaxing, floating sensation with soft color gradients
  */
