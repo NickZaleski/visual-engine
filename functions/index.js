@@ -31,12 +31,6 @@ const PRICES = {
   yearly: "price_1SkOxfGLI9gGYuFfUkxLgHsK",
 };
 
-// Allowed coupon IDs (100% off) per plan
-const COUPONS = {
-  monthly: "6969",
-  yearly: "1312",
-};
-
 /**
  * Helper: Update user subscription in Firestore
  */
@@ -404,10 +398,16 @@ exports.stripeWebhook = functions.https.onRequest(async (req, res) => {
   res.json({ received: true });
 });
 
+// Valid promotion codes mapping (code -> Stripe promo ID)
+const PROMO_CODES = {
+  "FOCUSMODE26": "promo_1SmDu6GLI9gGYuFfl32F7hYF", // 30-day free trial for yearly
+};
+
 /**
  * Create a Subscription with Payment Element
  * POST /createSubscription
  * Returns clientSecret for embedded payment form
+ * Supports promotion codes for discounts/trials
  */
 exports.createSubscription = functions.https.onRequest((req, res) => {
   cors(req, res, async () => {
@@ -416,12 +416,13 @@ exports.createSubscription = functions.https.onRequest((req, res) => {
     }
 
     try {
-      const { priceId, email, userId, couponId } = req.body;
+      const { priceId, email, userId, promotionCode } = req.body;
 
       console.log("🔍 Create Subscription Request:");
       console.log("   Price ID:", priceId);
       console.log("   Email:", email);
       console.log("   User ID:", userId);
+      console.log("   Promotion Code:", promotionCode || "none");
 
       // Validate price ID
       if (!priceId || !Object.values(PRICES).includes(priceId)) {
@@ -432,22 +433,29 @@ exports.createSubscription = functions.https.onRequest((req, res) => {
         });
       }
 
-      // Validate coupon: allow only known IDs and match plan
-      let discountToApply = null;
-      if (couponId) {
-        const plan = getPlanFromPriceId(priceId);
-        const isAllowed =
-          (plan === "monthly" && couponId === COUPONS.monthly) ||
-          (plan === "yearly" && couponId === COUPONS.yearly);
-
-        if (!isAllowed) {
+      // Validate promotion code if provided
+      let stripePromoId = null;
+      let discountApplied = false;
+      
+      if (promotionCode) {
+        const upperCode = promotionCode.toUpperCase();
+        
+        // Only allow coupon for yearly plan
+        if (priceId !== PRICES.yearly) {
           return res.status(400).json({
-            error: "Invalid coupon for selected plan",
-            received: couponId,
-            allowedCoupons: COUPONS,
+            error: "Coupon only valid for yearly plan",
           });
         }
-        discountToApply = couponId;
+        
+        if (PROMO_CODES[upperCode]) {
+          stripePromoId = PROMO_CODES[upperCode];
+          discountApplied = true;
+          console.log("   ✅ Valid promotion code:", upperCode, "->", stripePromoId);
+        } else {
+          return res.status(400).json({
+            error: "Invalid coupon code",
+          });
+        }
       }
 
       // Create or get customer
@@ -477,42 +485,41 @@ exports.createSubscription = functions.https.onRequest((req, res) => {
         console.log("   Created new customer:", customer.id);
       }
 
-      // Create the subscription with payment_behavior: 'default_incomplete'
-      const subscription = await getStripe().subscriptions.create({
+      // Build subscription parameters
+      const subscriptionParams = {
         customer: customer.id,
         items: [{ price: priceId }],
         payment_behavior: "default_incomplete",
         payment_settings: {
           save_default_payment_method: "on_subscription",
         },
-        discounts: discountToApply ? [{ coupon: discountToApply }] : undefined,
         expand: ["latest_invoice.payment_intent"],
         metadata: {
           firebaseUserId: userId || "",
+          promotionCode: promotionCode || "",
         },
-      });
+      };
+      
+      // Apply promotion code if valid (gives 30-day free trial)
+      if (stripePromoId) {
+        subscriptionParams.promotion_code = stripePromoId;
+        console.log("   Applying promotion code:", stripePromoId);
+      }
 
-      const invoice = subscription.latest_invoice;
-      const paymentIntent = invoice?.payment_intent;
-      const amountDue = invoice?.amount_due ?? 0;
+      // Create the subscription
+      const subscription = await getStripe().subscriptions.create(subscriptionParams);
+
+      const paymentIntent = subscription.latest_invoice.payment_intent;
 
       console.log("   ✅ Subscription created:", subscription.id);
       console.log("   Payment Intent:", paymentIntent.id);
-
-      // If coupon makes amount_due zero, no client secret is needed
-      if (amountDue === 0 || !paymentIntent) {
-        console.log("   ✅ Coupon applied, no payment required.");
-        return res.json({
-          success: true,
-          subscriptionId: subscription.id,
-          customerId: customer.id,
-        });
-      }
+      console.log("   Discount Applied:", discountApplied);
 
       res.json({
         subscriptionId: subscription.id,
         clientSecret: paymentIntent.client_secret,
         customerId: customer.id,
+        discountApplied: discountApplied,
       });
     } catch (error) {
       console.error("Error creating subscription:", error);
@@ -566,6 +573,71 @@ exports.confirmSubscription = functions.https.onRequest((req, res) => {
       }
     } catch (error) {
       console.error("Error confirming subscription:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+});
+
+/**
+ * Grant manual premium access to a user by email
+ * POST /grantPremium
+ * Body: { email: string, adminKey: string }
+ * 
+ * This is an admin-only endpoint protected by a simple key
+ * Set the admin key via: firebase functions:config:set admin.key="your-secret-key"
+ */
+exports.grantPremium = functions.https.onRequest((req, res) => {
+  cors(req, res, async () => {
+    if (req.method !== "POST") {
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    try {
+      const { email, adminKey } = req.body;
+      
+      // Verify admin key (simple protection)
+      const expectedKey = functions.config().admin?.key || "calm-down-admin-2024";
+      if (adminKey !== expectedKey) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+      
+      if (!email) {
+        return res.status(400).json({ error: "Email required" });
+      }
+      
+      console.log(`🎁 Granting premium to: ${email}`);
+      
+      // Create a document ID from email (safe format)
+      const docId = email.replace(/[.@]/g, "_");
+      
+      // Set subscription data
+      const subscriptionData = {
+        email: email,
+        subscription: {
+          status: "active",
+          plan: "yearly",
+          grantedManually: true,
+          grantedAt: admin.firestore.FieldValue.serverTimestamp(),
+          // 10 years expiration for manually granted subscriptions
+          currentPeriodEnd: admin.firestore.Timestamp.fromDate(
+            new Date(Date.now() + 365 * 24 * 60 * 60 * 1000 * 10)
+          ),
+          cancelAtPeriodEnd: false,
+        },
+      };
+      
+      await db.collection("users").doc(docId).set(subscriptionData, { merge: true });
+      
+      console.log(`✅ Premium granted to ${email} (doc: ${docId})`);
+      
+      res.json({
+        success: true,
+        email: email,
+        documentId: docId,
+        message: `Premium access granted to ${email}`,
+      });
+    } catch (error) {
+      console.error("Error granting premium:", error);
       res.status(500).json({ error: error.message });
     }
   });

@@ -502,19 +502,26 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   res.json({ received: true });
 });
 
+// Valid promotion codes mapping (code -> Stripe promo ID)
+const PROMO_CODES = {
+  'FOCUSMODE26': 'promo_1SmDu6GLI9gGYuFfl32F7hYF', // 30-day free trial for yearly
+};
+
 /**
  * Create a Subscription with embedded Payment Element
  * Returns clientSecret for Stripe Elements
+ * Supports promotion codes for discounts/trials
  * POST /create-subscription
  */
 app.post('/create-subscription', async (req, res) => {
   try {
-    const { priceId, email, userId } = req.body;
+    const { priceId, email, userId, promotionCode } = req.body;
     
     console.log('\n🔍 Create Subscription Request:');
     console.log('   Price ID:', priceId);
     console.log('   Email:', email);
     console.log('   User ID:', userId);
+    console.log('   Promotion Code:', promotionCode || 'none');
     
     // Validate price ID
     if (!priceId || !Object.values(PRICES).includes(priceId)) {
@@ -524,6 +531,31 @@ app.post('/create-subscription', async (req, res) => {
         received: priceId,
         configuredPrices: PRICES
       });
+    }
+    
+    // Validate promotion code if provided
+    let stripePromoId = null;
+    let discountApplied = false;
+    
+    if (promotionCode) {
+      const upperCode = promotionCode.toUpperCase();
+      
+      // Only allow coupon for yearly plan
+      if (priceId !== PRICES.yearly) {
+        return res.status(400).json({
+          error: 'Coupon only valid for yearly plan'
+        });
+      }
+      
+      if (PROMO_CODES[upperCode]) {
+        stripePromoId = PROMO_CODES[upperCode];
+        discountApplied = true;
+        console.log('   ✅ Valid promotion code:', upperCode, '->', stripePromoId);
+      } else {
+        return res.status(400).json({
+          error: 'Invalid coupon code'
+        });
+      }
     }
     
     // Create or get customer
@@ -553,33 +585,41 @@ app.post('/create-subscription', async (req, res) => {
       console.log('   Created new customer:', customer.id);
     }
     
-    // Create the subscription with payment_behavior: 'default_incomplete'
-    // This creates a subscription that waits for payment
-    // Allow multiple payment methods - Stripe will show available ones based on customer location
-    const subscription = await stripe.subscriptions.create({
+    // Build subscription parameters
+    const subscriptionParams = {
       customer: customer.id,
       items: [{ price: priceId }],
       payment_behavior: 'default_incomplete',
       payment_settings: {
         save_default_payment_method: 'on_subscription',
-        // Allow all payment methods configured in Stripe Dashboard
-        // Remove payment_method_types to let Stripe auto-detect based on customer location
       },
       expand: ['latest_invoice.payment_intent', 'pending_setup_intent'],
       metadata: {
-        firebaseUserId: userId || ''
+        firebaseUserId: userId || '',
+        promotionCode: promotionCode || ''
       }
-    });
+    };
+    
+    // Apply promotion code if valid (gives 30-day free trial)
+    if (stripePromoId) {
+      subscriptionParams.promotion_code = stripePromoId;
+      console.log('   Applying promotion code:', stripePromoId);
+    }
+    
+    // Create the subscription
+    const subscription = await stripe.subscriptions.create(subscriptionParams);
     
     const paymentIntent = subscription.latest_invoice.payment_intent;
     
     console.log('   ✅ Subscription created:', subscription.id);
     console.log('   Payment Intent:', paymentIntent.id);
+    console.log('   Discount Applied:', discountApplied);
     
     res.json({
       subscriptionId: subscription.id,
       clientSecret: paymentIntent.client_secret,
-      customerId: customer.id
+      customerId: customer.id,
+      discountApplied: discountApplied
     });
     
   } catch (error) {

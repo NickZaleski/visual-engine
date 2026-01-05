@@ -338,8 +338,9 @@ function App() {
       </div>
       
       {/* Profile Dropdown (desktop only) - only show if Firebase is configured and user is signed in */}
+      {/* Positioned in bottom-right corner, same location as Sign In button for non-authenticated users */}
       {isConfigured && user && (
-        <div className="hidden md:block fixed top-4 right-4 z-[500]">
+        <div className="hidden md:block fixed bottom-4 right-4 z-[500]">
           <ProfileDropdown
             user={user}
             subscription={subscription}
