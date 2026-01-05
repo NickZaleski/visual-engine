@@ -27,6 +27,7 @@ export function PaywallModal({ onSelectPlan, userId, userEmail, onCheckoutSucces
   const [step, setStep] = useState<Step>('select-plan');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState<string>('');
   
   // Stripe Elements state
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -97,11 +98,24 @@ export function PaywallModal({ onSelectPlan, userId, userEmail, onCheckoutSucces
           priceId,
           email: userEmail,
           userId,
+          couponId: couponCode.trim() || undefined,
         }),
       });
       
       if (response.ok) {
         const data = await response.json();
+        // If coupon makes invoice $0, backend may return no clientSecret
+        if (data.success && !data.clientSecret) {
+          if (data.subscriptionId) {
+            await confirmSubscription(data.subscriptionId);
+          }
+          if (onCheckoutSuccess) {
+            onCheckoutSuccess(data.subscriptionId || '', userEmail);
+          }
+          onSelectPlan(selectedPlan);
+          return;
+        }
+
         setClientSecret(data.clientSecret);
         setSubscriptionId(data.subscriptionId);
         setStep('payment');
@@ -396,6 +410,23 @@ export function PaywallModal({ onSelectPlan, userId, userEmail, onCheckoutSucces
                   {error}
                 </div>
               )}
+              
+              {/* Coupon input */}
+              <div className="mb-3">
+                <label className="block text-xs text-cosmic-300 mb-1 uppercase tracking-[0.08em]">
+                  Coupon (optional)
+                </label>
+                <input
+                  type="text"
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value)}
+                  placeholder="Enter coupon ID"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-cosmic-500 focus:outline-none focus:ring-2 focus:ring-nebula-purple"
+                />
+                <p className="text-[11px] text-cosmic-400 mt-1">
+                  Accepted Stripe coupon IDs only.
+                </p>
+              </div>
               
               {/* CTA Button */}
               <button

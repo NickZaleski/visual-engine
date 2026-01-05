@@ -31,6 +31,12 @@ const PRICES = {
   yearly: "price_1SkOxfGLI9gGYuFfUkxLgHsK",
 };
 
+// Allowed coupon IDs (100% off) per plan
+const COUPONS = {
+  monthly: "6969",
+  yearly: "1312",
+};
+
 /**
  * Helper: Update user subscription in Firestore
  */
@@ -410,7 +416,7 @@ exports.createSubscription = functions.https.onRequest((req, res) => {
     }
 
     try {
-      const { priceId, email, userId } = req.body;
+      const { priceId, email, userId, couponId } = req.body;
 
       console.log("🔍 Create Subscription Request:");
       console.log("   Price ID:", priceId);
@@ -424,6 +430,24 @@ exports.createSubscription = functions.https.onRequest((req, res) => {
           received: priceId,
           configuredPrices: PRICES,
         });
+      }
+
+      // Validate coupon: allow only known IDs and match plan
+      let discountToApply = null;
+      if (couponId) {
+        const plan = getPlanFromPriceId(priceId);
+        const isAllowed =
+          (plan === "monthly" && couponId === COUPONS.monthly) ||
+          (plan === "yearly" && couponId === COUPONS.yearly);
+
+        if (!isAllowed) {
+          return res.status(400).json({
+            error: "Invalid coupon for selected plan",
+            received: couponId,
+            allowedCoupons: COUPONS,
+          });
+        }
+        discountToApply = couponId;
       }
 
       // Create or get customer
@@ -461,16 +485,29 @@ exports.createSubscription = functions.https.onRequest((req, res) => {
         payment_settings: {
           save_default_payment_method: "on_subscription",
         },
+        discounts: discountToApply ? [{ coupon: discountToApply }] : undefined,
         expand: ["latest_invoice.payment_intent"],
         metadata: {
           firebaseUserId: userId || "",
         },
       });
 
-      const paymentIntent = subscription.latest_invoice.payment_intent;
+      const invoice = subscription.latest_invoice;
+      const paymentIntent = invoice?.payment_intent;
+      const amountDue = invoice?.amount_due ?? 0;
 
       console.log("   ✅ Subscription created:", subscription.id);
       console.log("   Payment Intent:", paymentIntent.id);
+
+      // If coupon makes amount_due zero, no client secret is needed
+      if (amountDue === 0 || !paymentIntent) {
+        console.log("   ✅ Coupon applied, no payment required.");
+        return res.json({
+          success: true,
+          subscriptionId: subscription.id,
+          customerId: customer.id,
+        });
+      }
 
       res.json({
         subscriptionId: subscription.id,
