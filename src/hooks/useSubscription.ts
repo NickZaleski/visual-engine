@@ -127,3 +127,4 @@ export function isFrequencyFree(frequencyId: string): boolean {
   return FREE_FREQUENCIES.includes(frequencyId);
 }
 
+
