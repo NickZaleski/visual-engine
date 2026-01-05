@@ -509,15 +509,27 @@ exports.createSubscription = functions.https.onRequest((req, res) => {
       // Create the subscription
       const subscription = await getStripe().subscriptions.create(subscriptionParams);
 
-      const paymentIntent = subscription.latest_invoice.payment_intent;
+      // For free trials or $0 invoices, payment_intent can be null. Fallback to setup intent.
+      const paymentIntent = subscription.latest_invoice?.payment_intent || null;
+      const setupIntent = subscription.pending_setup_intent || null;
+      const clientSecret =
+        paymentIntent?.client_secret || setupIntent?.client_secret || null;
+
+      if (!clientSecret) {
+        console.error("   ❌ No client secret available on subscription", subscription.id);
+        return res.status(500).json({
+          error: "No client secret available for this subscription",
+        });
+      }
 
       console.log("   ✅ Subscription created:", subscription.id);
-      console.log("   Payment Intent:", paymentIntent.id);
+      if (paymentIntent?.id) console.log("   Payment Intent:", paymentIntent.id);
+      if (setupIntent?.id) console.log("   Setup Intent:", setupIntent.id);
       console.log("   Discount Applied:", discountApplied);
 
       res.json({
         subscriptionId: subscription.id,
-        clientSecret: paymentIntent.client_secret,
+        clientSecret,
         customerId: customer.id,
         discountApplied: discountApplied,
       });
